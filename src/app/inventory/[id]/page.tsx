@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PhotoUploader } from "@/components/PhotoUploader";
+import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -57,6 +58,7 @@ export default function DealDetailPage() {
     deal.purchasedAt,
     deal.status === "sold" && deal.soldAt ? deal.soldAt : undefined,
   );
+  const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
 
   return (
     <div className="space-y-5">
@@ -71,6 +73,7 @@ export default function DealDetailPage() {
           <p className="mt-1 text-[var(--muted)]">
             Size {deal.size}
             {deal.category ? ` · ${deal.category.name}` : ""}
+            {` · ${ownerLabel}`}
             {deal.platform ? ` · ${deal.platform}` : ""}
           </p>
         </div>
@@ -140,6 +143,10 @@ export default function DealDetailPage() {
             {deal.status === "sold" ? "Sold" : "In stock"}
           </span>
           <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <dt className="text-[var(--muted)]">Owner</dt>
+              <dd className="text-lg font-semibold">{ownerLabel}</dd>
+            </div>
             <div>
               <dt className="text-[var(--muted)]">Cost</dt>
               <dd className="text-lg font-semibold">{formatMoney(deal.cost)}</dd>

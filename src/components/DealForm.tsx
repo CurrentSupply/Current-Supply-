@@ -1,7 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Category, Deal } from "@/db/schema";
+import {
+  DEAL_OWNER_LABELS,
+  DEAL_OWNERS,
+  parseDealOwner,
+  type Category,
+  type Deal,
+  type DealOwner,
+} from "@/db/schema";
 import { toInputDate } from "@/lib/format";
 
 export type DealFormValues = {
@@ -12,6 +19,7 @@ export type DealFormValues = {
   condition: string;
   categoryId: string;
   status: "in_stock" | "sold";
+  owner: DealOwner;
   purchasedAt: string;
   soldAt: string;
   notes: string;
@@ -35,6 +43,7 @@ function fromDeal(deal?: Partial<Deal>): DealFormValues {
     condition: deal?.condition ?? "",
     categoryId: deal?.categoryId ? String(deal.categoryId) : "",
     status: deal?.status === "sold" ? "sold" : "in_stock",
+    owner: parseDealOwner(deal?.owner),
     purchasedAt: toInputDate(deal?.purchasedAt),
     soldAt: deal?.soldAt ? toInputDate(deal.soldAt) : "",
     notes: deal?.notes ?? "",
@@ -129,6 +138,21 @@ export function DealForm({
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="owner">Owner</label>
+          <select
+            id="owner"
+            value={values.owner}
+            onChange={(e) => update("owner", e.target.value as DealOwner)}
+            required
+          >
+            {DEAL_OWNERS.map((owner) => (
+              <option key={owner} value={owner}>
+                {DEAL_OWNER_LABELS[owner]}
               </option>
             ))}
           </select>

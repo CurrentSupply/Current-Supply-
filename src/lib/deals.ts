@@ -1,11 +1,18 @@
 import { and, asc, eq, gte, inArray, like, lte, or, type SQL } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { categories, deals, photos, type DealStatus } from "@/db/schema";
+import {
+  categories,
+  deals,
+  photos,
+  type DealOwner,
+  type DealStatus,
+} from "@/db/schema";
 import { calcProfit, daysBetween } from "@/lib/format";
 
 export type DealFilters = {
   q?: string;
   status?: DealStatus | "all";
+  owner?: DealOwner | "all";
   categoryId?: number | "all";
   size?: string;
   purchasedFrom?: string;
@@ -31,6 +38,10 @@ function buildWhere(filters: DealFilters = {}): SQL | undefined {
 
   if (filters.status && filters.status !== "all") {
     clauses.push(eq(deals.status, filters.status));
+  }
+
+  if (filters.owner && filters.owner !== "all") {
+    clauses.push(eq(deals.owner, filters.owner));
   }
 
   if (filters.categoryId && filters.categoryId !== "all") {

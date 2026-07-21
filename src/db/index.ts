@@ -59,6 +59,7 @@ async function bootstrap() {
       condition TEXT NOT NULL DEFAULT '',
       category_id INTEGER REFERENCES categories(id),
       status TEXT NOT NULL DEFAULT 'in_stock',
+      owner TEXT NOT NULL DEFAULT 'other',
       purchased_at TEXT NOT NULL,
       sold_at TEXT,
       notes TEXT NOT NULL DEFAULT '',
@@ -77,6 +78,15 @@ async function bootstrap() {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Existing DBs created before owner was added need a safe column migrate.
+  const dealColumns = await client.execute("PRAGMA table_info(deals)");
+  const hasOwner = dealColumns.rows.some((row) => row.name === "owner");
+  if (!hasOwner) {
+    await client.execute(
+      "ALTER TABLE deals ADD COLUMN owner TEXT NOT NULL DEFAULT 'other'",
+    );
+  }
 
   const countResult = await client.execute(
     "SELECT COUNT(*) as c FROM categories",

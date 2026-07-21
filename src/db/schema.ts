@@ -9,6 +9,20 @@ export const categories = sqliteTable("categories", {
     .default(sql`(datetime('now'))`),
 });
 
+export const DEAL_OWNERS = ["mizzy", "mac", "other"] as const;
+export type DealOwner = (typeof DEAL_OWNERS)[number];
+
+export const DEAL_OWNER_LABELS: Record<DealOwner, string> = {
+  mizzy: "Mizzy",
+  mac: "Mac",
+  other: "Other",
+};
+
+export function parseDealOwner(value: unknown): DealOwner {
+  if (value === "mizzy" || value === "mac" || value === "other") return value;
+  return "other";
+}
+
 export const deals = sqliteTable("deals", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
@@ -20,6 +34,9 @@ export const deals = sqliteTable("deals", {
   status: text("status", { enum: ["in_stock", "sold"] })
     .notNull()
     .default("in_stock"),
+  owner: text("owner", { enum: ["mizzy", "mac", "other"] })
+    .notNull()
+    .default("other"),
   purchasedAt: text("purchased_at").notNull(),
   soldAt: text("sold_at"),
   notes: text("notes").notNull().default(""),

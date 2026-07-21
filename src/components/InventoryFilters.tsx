@@ -1,10 +1,16 @@
 "use client";
 
-import type { Category } from "@/db/schema";
+import {
+  DEAL_OWNER_LABELS,
+  DEAL_OWNERS,
+  type Category,
+  type DealOwner,
+} from "@/db/schema";
 
 export type InventoryFilterState = {
   q: string;
   status: "all" | "in_stock" | "sold";
+  owner: "all" | DealOwner;
   categoryId: string;
   size: string;
   purchasedFrom: string;
@@ -50,6 +56,23 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             <option value="all">All</option>
             <option value="in_stock">In stock</option>
             <option value="sold">Sold</option>
+          </select>
+        </div>
+        <div className="field">
+          <label htmlFor="owner">Owner</label>
+          <select
+            id="owner"
+            value={value.owner}
+            onChange={(e) =>
+              update("owner", e.target.value as InventoryFilterState["owner"])
+            }
+          >
+            <option value="all">All</option>
+            {DEAL_OWNERS.map((owner) => (
+              <option key={owner} value={owner}>
+                {DEAL_OWNER_LABELS[owner]}
+              </option>
+            ))}
           </select>
         </div>
         <div className="field">

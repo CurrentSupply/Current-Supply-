@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -17,6 +18,7 @@ type Props = {
 export function DealCard({ deal, onMarkSold }: Props) {
   const profit = calcProfit(deal.price, deal.cost);
   const cover = deal.coverPhoto;
+  const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
 
   return (
     <article className="surface group overflow-hidden rounded-none transition hover:border-black">
@@ -51,6 +53,7 @@ export function DealCard({ deal, onMarkSold }: Props) {
               <p className="mt-1 text-sm text-[var(--muted)]">
                 Size {deal.size}
                 {deal.category ? ` · ${deal.category.name}` : ""}
+                {` · ${ownerLabel}`}
               </p>
             </div>
             <div className="text-right">

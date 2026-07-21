@@ -14,6 +14,7 @@ import type { DealWithRelations } from "@/lib/deals";
 const defaultFilters: InventoryFilterState = {
   q: "",
   status: "all",
+  owner: "all",
   categoryId: "all",
   size: "",
   purchasedFrom: "",
@@ -36,6 +37,7 @@ export default function InventoryPage() {
       const params = new URLSearchParams();
       if (filters.q) params.set("q", filters.q);
       if (filters.status !== "all") params.set("status", filters.status);
+      if (filters.owner !== "all") params.set("owner", filters.owner);
       if (filters.categoryId !== "all") params.set("categoryId", filters.categoryId);
       if (filters.size) params.set("size", filters.size);
       if (filters.purchasedFrom) params.set("purchasedFrom", filters.purchasedFrom);

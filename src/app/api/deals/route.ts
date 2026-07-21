@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
-import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { deals } from "@/db/schema";
+import { deals, parseDealOwner } from "@/db/schema";
 import { getDeal, listDeals, type DealFilters } from "@/lib/deals";
 
 export async function GET(request: Request) {
@@ -11,6 +10,7 @@ export async function GET(request: Request) {
   const filters: DealFilters = {
     q: searchParams.get("q") ?? undefined,
     status: (searchParams.get("status") as DealFilters["status"]) ?? "all",
+    owner: (searchParams.get("owner") as DealFilters["owner"]) ?? "all",
     size: searchParams.get("size") ?? undefined,
     purchasedFrom: searchParams.get("purchasedFrom") ?? undefined,
     purchasedTo: searchParams.get("purchasedTo") ?? undefined,
@@ -35,6 +35,7 @@ export async function POST(request: Request) {
   const cost = Number(body.cost);
   const price = Number(body.price);
   const purchasedAt = String(body.purchasedAt ?? "").slice(0, 10);
+  const owner = parseDealOwner(body.owner);
 
   if (!name || !size || Number.isNaN(cost) || Number.isNaN(price) || !purchasedAt) {
     return NextResponse.json(
@@ -59,6 +60,7 @@ export async function POST(request: Request) {
       condition: String(body.condition ?? ""),
       categoryId: body.categoryId ? Number(body.categoryId) : null,
       status,
+      owner,
       purchasedAt,
       soldAt,
       notes: String(body.notes ?? ""),

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db, ensureDb } from "@/db";
-import { deals, photos } from "@/db/schema";
+import { deals, photos, parseDealOwner } from "@/db/schema";
 import { getDeal } from "@/lib/deals";
 import { deleteUpload } from "@/lib/storage";
 
@@ -38,6 +38,7 @@ export async function PATCH(request: Request, { params }: Params) {
   if (body.condition !== undefined) updates.condition = String(body.condition);
   if (body.notes !== undefined) updates.notes = String(body.notes);
   if (body.platform !== undefined) updates.platform = String(body.platform);
+  if (body.owner !== undefined) updates.owner = parseDealOwner(body.owner);
   if (body.purchasedAt !== undefined) {
     updates.purchasedAt = String(body.purchasedAt).slice(0, 10);
   }
