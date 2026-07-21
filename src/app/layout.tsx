@@ -1,23 +1,23 @@
 import type { Metadata } from "next";
-import { Fraunces, Manrope } from "next/font/google";
+import { Barlow_Condensed, IBM_Plex_Sans } from "next/font/google";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
-const display = Fraunces({
+const display = Barlow_Condensed({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["600", "700"],
 });
 
-const body = Manrope({
+const body = IBM_Plex_Sans({
   variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
-  title: "Reselling",
-  description: "Local deal tracker for resellers",
+  title: "Current Supply",
+  description: "Deal tracker for Current Supply",
 };
 
 export default function RootLayout({

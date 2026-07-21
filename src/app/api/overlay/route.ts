@@ -70,10 +70,10 @@ export async function POST(request: Request) {
       </defs>
       <rect width="${width}" height="${height}" fill="url(#shade)"/>
       <rect x="${pad}" y="${pad}" rx="${Math.round(badgeH / 2)}" ry="${Math.round(badgeH / 2)}"
-        width="${badgeW}" height="${badgeH}" fill="rgba(15,118,110,0.92)"/>
+        width="${badgeW}" height="${badgeH}"         fill="rgba(0,0,0,0.92)"/>
       <text x="${pad + badgeW / 2}" y="${pad + badgeH / 2 + sizeFont * 0.35}"
         text-anchor="middle" font-family="Arial Black, Helvetica, sans-serif"
-        font-size="${sizeFont}" font-weight="800" fill="#F7FBFA">${escapeXml(sizeText)}</text>
+        font-size="${sizeFont}" font-weight="800" fill="#FFFFFF">${escapeXml(sizeText)}</text>
       <text x="${pad}" y="${height - pad}"
         font-family="Arial Black, Helvetica, sans-serif"
         font-size="${priceFont}" font-weight="800" fill="#FFFFFF">${escapeXml(priceText)}</text>

@@ -84,8 +84,8 @@ function OverlayTool() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium text-[var(--accent)]">Listing Stamp</p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
+        <p className="page-kicker">Listing Stamp</p>
+        <h1 className="page-title mt-1 text-3xl sm:text-4xl">
           Price & size on photos
         </h1>
         <p className="mt-1 max-w-2xl text-[var(--muted)]">
@@ -95,7 +95,7 @@ function OverlayTool() {
       </div>
 
       {deals.length === 0 ? (
-        <div className="surface rounded-2xl px-6 py-14 text-center">
+        <div className="surface rounded-none px-6 py-14 text-center">
           <h2 className="text-xl font-semibold">No deals to stamp</h2>
           <p className="mt-2 text-[var(--muted)]">
             Add a deal with a photo first.
@@ -106,7 +106,7 @@ function OverlayTool() {
         </div>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="surface space-y-4 rounded-2xl p-5">
+          <section className="surface space-y-4 rounded-none p-5">
             <div className="field">
               <label htmlFor="deal">Deal</label>
               <select
@@ -182,9 +182,9 @@ function OverlayTool() {
             ) : null}
           </section>
 
-          <section className="surface rounded-2xl p-5">
+          <section className="surface rounded-none p-5">
             <h2 className="text-lg font-semibold">Preview</h2>
-            <div className="mt-4 overflow-hidden rounded-xl bg-[linear-gradient(135deg,#d9e4eb,#c7d7cf)]">
+            <div className="mt-4 overflow-hidden rounded-none border border-black bg-[#efefef]">
               {resultUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={resultUrl} alt="Stamped preview" className="w-full" />
@@ -197,10 +197,10 @@ function OverlayTool() {
                     className="w-full"
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <span className="absolute left-4 top-4 rounded-full bg-[var(--accent)] px-3 py-1 text-sm font-bold text-white">
+                  <span className="absolute left-4 top-4 border border-black bg-black px-3 py-1 text-sm font-bold uppercase tracking-[0.08em] text-white">
                     {size || "Size"}
                   </span>
-                  <span className="absolute bottom-4 left-4 text-2xl font-bold text-white">
+                  <span className="absolute bottom-4 left-4 text-2xl font-bold uppercase tracking-wide text-white">
                     {price ? formatMoney(Number(price) || 0) : "$—"}
                   </span>
                 </div>

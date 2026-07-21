@@ -15,9 +15,9 @@ function StatTile({
   hint?: string;
 }) {
   return (
-    <div className="surface rounded-2xl p-4">
-      <p className="text-sm text-[var(--muted)]">{label}</p>
-      <p className="mt-2 font-[family-name:var(--font-display)] text-2xl font-semibold tracking-tight">
+    <div className="surface rounded-none p-4">
+      <p className="page-kicker">{label}</p>
+      <p className="page-title mt-2 text-2xl">
         {value}
       </p>
       {hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
@@ -48,8 +48,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-medium text-[var(--accent)]">Dashboard</p>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
+        <p className="page-kicker">Dashboard</p>
+        <h1 className="page-title mt-1 text-3xl sm:text-4xl">
           Business pulse
         </h1>
         <p className="mt-1 text-[var(--muted)]">
@@ -58,7 +58,7 @@ export default function DashboardPage() {
       </div>
 
       {empty ? (
-        <div className="surface rounded-2xl px-6 py-14 text-center">
+        <div className="surface rounded-none px-6 py-14 text-center">
           <h2 className="text-xl font-semibold">No deals yet</h2>
           <p className="mt-2 text-[var(--muted)]">
             Add inventory to unlock profit and hold-time metrics.
@@ -115,7 +115,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="grid gap-5 lg:grid-cols-2">
-            <section className="surface rounded-2xl p-5">
+            <section className="surface rounded-none p-5">
               <h2 className="text-lg font-semibold">Profit by month</h2>
               {stats.byMonth.length === 0 ? (
                 <p className="mt-4 text-sm text-[var(--muted)]">No sales yet.</p>
@@ -129,9 +129,9 @@ export default function DashboardPage() {
                           {row.sold} sold · {formatMoney(row.profit)}
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-deep)]">
+                      <div className="h-2 overflow-hidden rounded-none bg-[var(--bg-deep)]">
                         <div
-                          className="h-full rounded-full bg-[var(--accent)]"
+                          className="h-full rounded-none bg-[var(--accent)]"
                           style={{
                             width: `${Math.max(8, (Math.abs(row.profit) / maxMonthProfit) * 100)}%`,
                           }}
@@ -143,7 +143,7 @@ export default function DashboardPage() {
               )}
             </section>
 
-            <section className="surface rounded-2xl p-5">
+            <section className="surface rounded-none p-5">
               <h2 className="text-lg font-semibold">By category</h2>
               {stats.byCategory.length === 0 ? (
                 <p className="mt-4 text-sm text-[var(--muted)]">No categories yet.</p>
@@ -168,10 +168,10 @@ export default function DashboardPage() {
             </section>
           </div>
 
-          <section className="surface rounded-2xl p-5">
+          <section className="surface rounded-none p-5">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Recently sold</h2>
-              <Link href="/inventory?status=sold" className="text-sm text-[var(--accent)]">
+              <Link href="/inventory?status=sold" className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4">
                 View sold
               </Link>
             </div>
@@ -183,9 +183,9 @@ export default function DashboardPage() {
                   <li key={deal.id}>
                     <Link
                       href={`/inventory/${deal.id}`}
-                      className="flex gap-3 rounded-xl border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
+                      className="flex gap-3 rounded-none border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
                     >
-                      <div className="h-16 w-16 overflow-hidden rounded-lg bg-[var(--bg-deep)]">
+                      <div className="h-16 w-16 overflow-hidden rounded-none bg-[var(--bg-deep)]">
                         {deal.coverPhoto ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img

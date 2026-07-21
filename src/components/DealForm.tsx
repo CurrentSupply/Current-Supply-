@@ -96,7 +96,7 @@ export function DealForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="surface rounded-2xl p-5 sm:p-6">
+    <form onSubmit={handleSubmit} className="surface rounded-none p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="field sm:col-span-2">
           <label htmlFor="name">Item name</label>

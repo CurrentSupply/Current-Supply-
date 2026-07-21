@@ -67,8 +67,8 @@ export default function InventoryPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-[var(--accent)]">Inventory</p>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl font-semibold tracking-tight sm:text-4xl">
+          <p className="page-kicker">Inventory</p>
+          <h1 className="page-title mt-1 text-3xl sm:text-4xl">
             Your deals
           </h1>
           <p className="mt-1 text-[var(--muted)]">
@@ -91,8 +91,8 @@ export default function InventoryPage() {
       {loading ? (
         <p className="text-sm text-[var(--muted)]">Loading deals…</p>
       ) : deals.length === 0 ? (
-        <div className="surface rounded-2xl px-6 py-14 text-center">
-          <h2 className="text-xl font-semibold">No deals match</h2>
+        <div className="surface rounded-none px-6 py-14 text-center">
+          <h2 className="page-title text-2xl">No deals match</h2>
           <p className="mt-2 text-[var(--muted)]">
             Add your first item or clear filters to see everything.
           </p>

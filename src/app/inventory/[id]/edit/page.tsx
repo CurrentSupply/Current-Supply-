@@ -63,7 +63,7 @@ export default function EditDealPage() {
         >
           ← Back to deal
         </Link>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold">
+        <h1 className="page-title mt-2 text-3xl">
           Edit deal
         </h1>
       </div>

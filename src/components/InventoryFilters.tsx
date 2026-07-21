@@ -27,7 +27,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
   }
 
   return (
-    <section className="surface rounded-2xl p-4">
+    <section className="surface rounded-none p-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="field md:col-span-2 xl:col-span-2">
           <label htmlFor="search">Search</label>

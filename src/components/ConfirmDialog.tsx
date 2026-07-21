@@ -22,9 +22,9 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,20,26,0.45)] p-4">
-      <div className="surface w-full max-w-md rounded-2xl p-5">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div className="surface w-full max-w-md rounded-none border-black p-5">
+        <h2 className="page-title text-xl">{title}</h2>
         <p className="mt-2 text-sm text-[var(--muted)]">{message}</p>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" className="btn btn-secondary" onClick={onCancel}>

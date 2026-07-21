@@ -38,9 +38,9 @@ export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,20,26,0.45)] p-4">
-      <form onSubmit={submit} className="surface w-full max-w-md rounded-2xl p-5">
-        <h2 className="text-lg font-semibold">Mark as sold</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <form onSubmit={submit} className="surface w-full max-w-md rounded-none border-black p-5">
+        <h2 className="page-title text-xl">Mark as sold</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
           Confirm the final sale price and date.
         </p>

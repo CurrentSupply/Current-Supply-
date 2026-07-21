@@ -98,7 +98,7 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
   }
 
   return (
-    <section className="surface rounded-2xl p-5">
+    <section className="surface rounded-none p-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Photos</h2>
         <button
@@ -124,10 +124,10 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
       />
 
       <div
-        className={`mt-4 rounded-xl border border-dashed p-6 text-center transition ${
+        className={`mt-4 rounded-none border border-dashed p-6 text-center transition ${
           dragging
-            ? "border-[var(--accent)] bg-[var(--accent-soft)]"
-            : "border-[var(--line)] bg-white/60"
+            ? "border-black bg-[#f3f3f3]"
+            : "border-[var(--line)] bg-white"
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -152,7 +152,7 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
       ) : (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {photos.map((photo, index) => (
-            <li key={photo.id} className="overflow-hidden rounded-xl border border-[var(--line)] bg-white">
+            <li key={photo.id} className="overflow-hidden rounded-none border border-[var(--line)] bg-white">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photoUrl(photo.filename)}

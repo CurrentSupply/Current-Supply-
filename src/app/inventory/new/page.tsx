@@ -39,7 +39,7 @@ export default function NewDealPage() {
         <Link href="/inventory" className="text-sm text-[var(--muted)] hover:text-[var(--ink)]">
           ← Back to inventory
         </Link>
-        <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold">
+        <h1 className="page-title mt-2 text-3xl">
           Add deal
         </h1>
       </div>

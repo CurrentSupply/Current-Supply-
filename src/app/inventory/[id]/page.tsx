@@ -39,7 +39,7 @@ export default function DealDetailPage() {
 
   if (error) {
     return (
-      <div className="surface rounded-2xl p-8 text-center">
+      <div className="surface rounded-none p-8 text-center">
         <p>{error}</p>
         <Link href="/inventory" className="btn btn-secondary mt-4">
           Back to inventory
@@ -65,7 +65,7 @@ export default function DealDetailPage() {
           <Link href="/inventory" className="text-sm text-[var(--muted)] hover:text-[var(--ink)]">
             ← Inventory
           </Link>
-          <h1 className="mt-2 font-[family-name:var(--font-display)] text-3xl font-semibold sm:text-4xl">
+          <h1 className="page-title mt-2 text-3xl sm:text-4xl">
             {deal.name}
           </h1>
           <p className="mt-1 text-[var(--muted)]">
@@ -116,8 +116,8 @@ export default function DealDetailPage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="surface overflow-hidden rounded-2xl">
-          <div className="aspect-[4/3] bg-[linear-gradient(135deg,#d9e4eb,#c7d7cf)]">
+        <div className="surface overflow-hidden rounded-none">
+          <div className="aspect-[4/3] bg-[#efefef]">
             {deal.coverPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -133,7 +133,7 @@ export default function DealDetailPage() {
           </div>
         </div>
 
-        <div className="surface rounded-2xl p-5">
+        <div className="surface rounded-none p-5">
           <span
             className={`badge ${deal.status === "sold" ? "badge-sold" : "badge-stock"}`}
           >

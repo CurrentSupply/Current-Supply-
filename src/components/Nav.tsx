@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -13,23 +14,35 @@ export function Nav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--line)]/70 bg-white/80 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-white">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
-        <Link href="/inventory" className="brand-mark text-2xl font-[family-name:var(--font-display)] font-semibold tracking-tight">
-          Reselling
+        <Link href="/inventory" className="flex items-center gap-3">
+          <Image
+            src="/current-supply-logo.png"
+            alt="Current Supply"
+            width={148}
+            height={148}
+            className="h-11 w-11 object-contain sm:h-12 sm:w-12"
+            priority
+          />
+          <span className="brand-wordmark hidden text-sm sm:inline">
+            Current Supply
+          </span>
         </Link>
-        <nav className="flex items-center gap-1 rounded-full border border-[var(--line)] bg-white/80 p-1">
-          {links.map((link) => {
+        <nav className="flex items-center gap-0 border border-black">
+          {links.map((link, index) => {
             const active =
               pathname === link.href || pathname.startsWith(`${link.href}/`);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-full px-3.5 py-1.5 text-sm font-medium transition ${
+                className={`px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] transition sm:px-4 ${
+                  index > 0 ? "border-l border-black" : ""
+                } ${
                   active
-                    ? "bg-[var(--accent)] text-white"
-                    : "text-[var(--muted)] hover:text-[var(--ink)]"
+                    ? "bg-black text-white"
+                    : "bg-white text-black hover:bg-[#f3f3f3]"
                 }`}
               >
                 {link.label}
