@@ -55,7 +55,7 @@ function buildWhere(filters: DealFilters = {}): SQL | undefined {
 }
 
 export async function listDeals(filters: DealFilters = {}): Promise<DealWithRelations[]> {
-  ensureDb();
+  await ensureDb();
   const where = buildWhere(filters);
   const sort = filters.sort ?? "newest";
 
@@ -101,7 +101,7 @@ export async function listDeals(filters: DealFilters = {}): Promise<DealWithRela
 }
 
 export async function getDeal(id: number): Promise<DealWithRelations | null> {
-  ensureDb();
+  await ensureDb();
   const deal = await db.query.deals.findFirst({
     where: eq(deals.id, id),
     with: {
@@ -121,7 +121,7 @@ export async function getDeal(id: number): Promise<DealWithRelations | null> {
 }
 
 export async function listCategories() {
-  ensureDb();
+  await ensureDb();
   return db.select().from(categories).orderBy(asc(categories.name));
 }
 
@@ -140,7 +140,7 @@ export type DashboardStats = {
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  ensureDb();
+  await ensureDb();
   const all = await listDeals({ sort: "newest" });
 
   const inStock = all.filter((d) => d.status === "in_stock");

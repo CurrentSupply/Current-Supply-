@@ -5,7 +5,7 @@ import { deals } from "@/db/schema";
 import { getDeal, listDeals, type DealFilters } from "@/lib/deals";
 
 export async function GET(request: Request) {
-  ensureDb();
+  await ensureDb();
   const { searchParams } = new URL(request.url);
 
   const filters: DealFilters = {
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  ensureDb();
+  await ensureDb();
   const body = await request.json();
 
   const name = String(body.name ?? "").trim();

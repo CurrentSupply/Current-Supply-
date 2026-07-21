@@ -4,13 +4,13 @@ import { categories } from "@/db/schema";
 import { listCategories } from "@/lib/deals";
 
 export async function GET() {
-  ensureDb();
+  await ensureDb();
   const rows = await listCategories();
   return NextResponse.json(rows);
 }
 
 export async function POST(request: Request) {
-  ensureDb();
+  await ensureDb();
   const body = await request.json();
   const name = String(body.name ?? "").trim();
   if (!name) {

@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { asc, eq } from "drizzle-orm";
-import { db, ensureDb, uploadsDir } from "@/db";
+import { db, ensureDb } from "@/db";
 import { photos } from "@/db/schema";
 import { getDeal } from "@/lib/deals";
-import fs from "fs";
-import path from "path";
+import { deleteUpload } from "@/lib/storage";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function DELETE(_request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const photoId = Number(id);
 
@@ -18,8 +17,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     return NextResponse.json({ error: "Photo not found." }, { status: 404 });
   }
 
-  const filePath = path.join(uploadsDir, photo.filename);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  await deleteUpload(photo.filename);
 
   const wasCover = photo.isCover;
   const dealId = photo.dealId;

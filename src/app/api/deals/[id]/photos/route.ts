@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { and, eq, max } from "drizzle-orm";
-import { db, ensureDb, uploadsDir } from "@/db";
+import { db, ensureDb } from "@/db";
 import { photos, type Photo } from "@/db/schema";
 import { getDeal } from "@/lib/deals";
+import { deleteUpload, saveUpload } from "@/lib/storage";
 import { randomUUID } from "crypto";
-import fs from "fs";
 import path from "path";
 
 type Params = { params: Promise<{ id: string }> };
@@ -13,7 +13,7 @@ const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function POST(request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const dealId = Number(id);
   const deal = await getDeal(dealId);
@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
     const ext = path.extname(file.name) || ".jpg";
     const filename = `${dealId}-${randomUUID()}${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-    fs.writeFileSync(path.join(uploadsDir, filename), buffer);
+    const stored = await saveUpload(filename, buffer, file.type || "image/jpeg");
 
     const makeCover: boolean = needsCover && created.length === 0;
 
@@ -62,7 +62,7 @@ export async function POST(request: Request, { params }: Params) {
       .insert(photos)
       .values({
         dealId,
-        filename,
+        filename: stored,
         originalName: file.name,
         isCover: makeCover,
         sortOrder: nextOrder++,
@@ -77,7 +77,7 @@ export async function POST(request: Request, { params }: Params) {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const dealId = Number(id);
   const body = await request.json();

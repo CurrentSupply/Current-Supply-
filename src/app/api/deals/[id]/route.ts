@@ -1,15 +1,14 @@
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { db, ensureDb, uploadsDir } from "@/db";
+import { db, ensureDb } from "@/db";
 import { deals, photos } from "@/db/schema";
 import { getDeal } from "@/lib/deals";
-import fs from "fs";
-import path from "path";
+import { deleteUpload } from "@/lib/storage";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const deal = await getDeal(Number(id));
   if (!deal) {
@@ -19,7 +18,7 @@ export async function GET(_request: Request, { params }: Params) {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const dealId = Number(id);
   const existing = await getDeal(dealId);
@@ -69,7 +68,7 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
-  ensureDb();
+  await ensureDb();
   const { id } = await params;
   const dealId = Number(id);
   const existing = await getDeal(dealId);
@@ -78,8 +77,7 @@ export async function DELETE(_request: Request, { params }: Params) {
   }
 
   for (const photo of existing.photos) {
-    const filePath = path.join(uploadsDir, photo.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    await deleteUpload(photo.filename);
   }
 
   await db.delete(photos).where(eq(photos.dealId, dealId));

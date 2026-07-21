@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { ensureDb, uploadsDir } from "@/db";
+import { ensureDb } from "@/db";
 import { getDeal } from "@/lib/deals";
-import { formatMoney } from "@/lib/format";
-import fs from "fs";
-import path from "path";
+import { formatMoney, photoUrl } from "@/lib/format";
+import { readUpload, saveUpload } from "@/lib/storage";
 import sharp from "sharp";
 
 export async function POST(request: Request) {
-  ensureDb();
+  await ensureDb();
   const body = await request.json();
   const dealId = Number(body.dealId);
   const photoId = body.photoId ? Number(body.photoId) : null;
@@ -37,10 +36,10 @@ export async function POST(request: Request) {
     );
   }
 
-  const filePath = path.join(uploadsDir, photo.filename);
-  if (!fs.existsSync(filePath)) {
+  const source = await readUpload(photo.filename);
+  if (!source) {
     return NextResponse.json(
-      { error: "Photo file is missing on disk." },
+      { error: "Photo file is missing." },
       { status: 404 },
     );
   }
@@ -49,7 +48,7 @@ export async function POST(request: Request) {
   const priceValue = priceOverride ?? deal.price;
   const priceText = formatMoney(priceValue);
 
-  const image = sharp(filePath);
+  const image = sharp(source);
   const meta = await image.metadata();
   const width = meta.width ?? 1200;
   const height = meta.height ?? 1200;
@@ -81,18 +80,17 @@ export async function POST(request: Request) {
     </svg>
   `;
 
-  const stamped = await sharp(filePath)
+  const stamped = await sharp(source)
     .composite([{ input: Buffer.from(svg), top: 0, left: 0 }])
     .jpeg({ quality: 92 })
     .toBuffer();
 
   const outName = `stamped-${dealId}-${Date.now()}.jpg`;
-  const outPath = path.join(uploadsDir, outName);
-  fs.writeFileSync(outPath, stamped);
+  const stored = await saveUpload(outName, stamped, "image/jpeg");
 
   return NextResponse.json({
-    url: `/uploads/${outName}`,
-    filename: outName,
+    url: photoUrl(stored),
+    filename: stored,
     size: sizeText,
     price: priceText,
   });

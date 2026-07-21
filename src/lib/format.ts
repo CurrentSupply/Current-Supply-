@@ -34,5 +34,8 @@ export function toInputDate(value?: string | null): string {
 }
 
 export function photoUrl(filename: string): string {
-  return `/uploads/${filename}`;
+  if (filename.startsWith("http://") || filename.startsWith("https://")) {
+    return filename;
+  }
+  return `/api/media/${encodeURIComponent(filename)}`;
 }

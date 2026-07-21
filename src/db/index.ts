@@ -1,32 +1,49 @@
-import Database from "better-sqlite3";
-import { drizzle } from "drizzle-orm/better-sqlite3";
+import { createClient, type Client } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
+import { categories } from "./schema";
+
+const isVercel = Boolean(process.env.VERCEL);
 
 const dataDir = path.join(process.cwd(), "data");
-const uploadsDir = path.join(process.cwd(), "public", "uploads");
+const localUploadsDir = path.join(process.cwd(), "public", "uploads");
+const vercelUploadsDir = path.join("/tmp", "uploads");
 
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+export const uploadsDir = isVercel ? vercelUploadsDir : localUploadsDir;
+
+function resolveDbUrl(): string {
+  if (process.env.TURSO_DATABASE_URL) {
+    return process.env.TURSO_DATABASE_URL;
+  }
+  if (isVercel) {
+    return "file:/tmp/reselling.db";
+  }
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
+  const dbFile = path.join(dataDir, "reselling.db");
+  // libSQL expects a file: URL; normalize Windows paths
+  return `file:${dbFile.replaceAll("\\", "/")}`;
 }
+
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-const dbPath = path.join(dataDir, "reselling.db");
-const sqlite = new Database(dbPath);
-sqlite.pragma("journal_mode = WAL");
-sqlite.pragma("foreign_keys = ON");
+const client: Client = createClient({
+  url: resolveDbUrl(),
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
 
-export const db = drizzle(sqlite, { schema });
+export const db = drizzle(client, { schema });
 
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
-export function ensureDb() {
-  if (initialized) return;
-
-  sqlite.exec(`
+async function bootstrap() {
+  await client.executeMultiple(`
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
@@ -61,24 +78,33 @@ export function ensureDb() {
     );
   `);
 
-  const count = sqlite
-    .prepare("SELECT COUNT(*) as c FROM categories")
-    .get() as { c: number };
+  const countResult = await client.execute(
+    "SELECT COUNT(*) as c FROM categories",
+  );
+  const count = Number(countResult.rows[0]?.c ?? 0);
 
-  if (count.c === 0) {
-    const insert = sqlite.prepare("INSERT INTO categories (name) VALUES (?)");
-    for (const name of [
-      "Sneakers",
-      "Apparel",
-      "Electronics",
-      "Accessories",
-      "Other",
-    ]) {
-      insert.run(name);
-    }
+  if (count === 0) {
+    await db.insert(categories).values([
+      { name: "Sneakers" },
+      { name: "Apparel" },
+      { name: "Electronics" },
+      { name: "Accessories" },
+      { name: "Other" },
+    ]);
   }
-
-  initialized = true;
 }
 
-export { uploadsDir };
+export async function ensureDb() {
+  if (initialized) return;
+  if (!initPromise) {
+    initPromise = bootstrap()
+      .then(() => {
+        initialized = true;
+      })
+      .catch((err) => {
+        initPromise = null;
+        throw err;
+      });
+  }
+  await initPromise;
+}
