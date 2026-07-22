@@ -8,6 +8,7 @@ import {
   formatMoney,
   formatRoi,
   photoUrl,
+  profitToneClass,
 } from "@/lib/format";
 
 type Props = {
@@ -82,8 +83,8 @@ export function DealCard({ deal, onMarkSold }: Props) {
             </div>
           </div>
           <div className="mt-3 flex items-center justify-between text-sm">
-            <span className={profit >= 0 ? "profit-pos" : "profit-neg"}>
-              {profit >= 0 ? "+" : ""}
+            <span className={profitToneClass(profit)}>
+              {profit > 0 ? "+" : ""}
               {formatMoney(profit)} · {formatRoi(deal.price, deal.cost)}
             </span>
             {deal.platform ? (

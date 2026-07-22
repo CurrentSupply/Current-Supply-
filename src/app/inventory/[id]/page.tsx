@@ -10,10 +10,12 @@ import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/s
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
+  calcRoi,
   daysBetween,
   formatMoney,
   formatRoi,
   photoUrl,
+  profitToneClass,
 } from "@/lib/format";
 
 export default function DealDetailPage() {
@@ -55,6 +57,7 @@ export default function DealDetailPage() {
   }
 
   const profit = calcProfit(deal.price, deal.cost);
+  const roi = calcRoi(deal.price, deal.cost);
   const held = daysBetween(
     deal.purchasedAt,
     deal.status === "sold" && deal.soldAt ? deal.soldAt : undefined,
@@ -172,13 +175,17 @@ export default function DealDetailPage() {
             </div>
             <div>
               <dt className="text-[var(--muted)]">Profit</dt>
-              <dd className={`text-lg font-semibold ${profit >= 0 ? "profit-pos" : "profit-neg"}`}>
+              <dd className={`text-lg font-semibold ${profitToneClass(profit)}`}>
                 {formatMoney(profit)}
               </dd>
             </div>
             <div>
               <dt className="text-[var(--muted)]">ROI</dt>
-              <dd className="text-lg font-semibold">
+              <dd
+                className={`text-lg font-semibold ${
+                  roi === null ? "" : profitToneClass(roi)
+                }`}
+              >
                 {formatRoi(deal.price, deal.cost)}
               </dd>
             </div>

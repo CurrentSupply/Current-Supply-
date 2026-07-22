@@ -14,6 +14,8 @@
   --danger: #000000;
   --sold: #000000;
   --stock: #000000;
+  --profit: #1a6b35;
+  --loss: #b42318;
 }
 
 @theme inline {
@@ -238,11 +240,16 @@ select {
 }
 
 .profit-pos {
-  color: var(--ink);
+  color: var(--profit);
   font-weight: 700;
 }
 
 .profit-neg {
+  color: var(--loss);
+  font-weight: 700;
+}
+
+.profit-zero {
   color: var(--muted);
   font-weight: 700;
 }

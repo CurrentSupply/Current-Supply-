@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { formatMoney, toInputDate } from "@/lib/format";
+import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
 
 type Props = {
   open: boolean;
@@ -115,7 +115,7 @@ export function MarkSoldDialog({
             {profit !== null ? (
               <p className="text-sm text-[var(--muted)]">
                 Profit at this price:{" "}
-                <span className={profit >= 0 ? "profit-pos" : "profit-neg"}>
+                <span className={profitToneClass(profit)}>
                   {formatMoney(profit)}
                 </span>
               </p>

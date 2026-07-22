@@ -13,7 +13,7 @@ import {
   type DealCondition,
   type DealOwner,
 } from "@/db/schema";
-import { photoUrl, toInputDate } from "@/lib/format";
+import { photoUrl, profitToneClass, toInputDate } from "@/lib/format";
 
 export type DealFormValues = {
   name: string;
@@ -430,8 +430,8 @@ export function DealForm({
       {profitPreview !== null ? (
         <p className="mt-4 text-sm text-[var(--muted)]">
           Profit preview:{" "}
-          <span className={profitPreview >= 0 ? "profit-pos" : "profit-neg"}>
-            {profitPreview >= 0 ? "+" : ""}
+          <span className={profitToneClass(profitPreview)}>
+            {profitPreview > 0 ? "+" : ""}
             {profitPreview.toFixed(2)}
           </span>
         </p>

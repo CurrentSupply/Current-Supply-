@@ -3,22 +3,32 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { DashboardStats } from "@/lib/deals";
-import { formatMoney, photoUrl } from "@/lib/format";
+import { formatMoney, photoUrl, profitToneClass } from "@/lib/format";
 
 function StatTile({
   label,
   value,
   hint,
+  valueClassName,
+  hintClassName,
 }: {
   label: string;
   value: string;
   hint?: string;
+  valueClassName?: string;
+  hintClassName?: string;
 }) {
   return (
     <div className="surface rounded-none p-4">
       <p className="page-kicker">{label}</p>
-      <p className="page-title mt-2 text-2xl">{value}</p>
-      {hint ? <p className="mt-1 text-xs text-[var(--muted)]">{hint}</p> : null}
+      <p className={`page-title mt-2 text-2xl ${valueClassName ?? ""}`}>
+        {value}
+      </p>
+      {hint ? (
+        <p className={`mt-1 text-xs ${hintClassName ?? "text-[var(--muted)]"}`}>
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -96,11 +106,13 @@ export default function DashboardPage() {
             <StatTile
               label="Projected profit"
               value={formatMoney(stats.projectedProfit)}
+              valueClassName={profitToneClass(stats.projectedProfit)}
               hint="Open stock at list price"
             />
             <StatTile
               label="Realized profit"
               value={formatMoney(stats.realizedProfit)}
+              valueClassName={profitToneClass(stats.realizedProfit)}
               hint={`${stats.soldCount} sold`}
             />
             <StatTile
@@ -108,7 +120,12 @@ export default function DashboardPage() {
               value={
                 stats.avgRoiSold === null
                   ? "—"
-                  : `${stats.avgRoiSold >= 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`
+                  : `${stats.avgRoiSold > 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`
+              }
+              valueClassName={
+                stats.avgRoiSold === null
+                  ? undefined
+                  : profitToneClass(stats.avgRoiSold)
               }
             />
             <StatTile
@@ -137,6 +154,11 @@ export default function DashboardPage() {
                   ? formatMoney(stats.bestCategory.profit)
                   : "No sold profit yet"
               }
+              hintClassName={
+                stats.bestCategory
+                  ? profitToneClass(stats.bestCategory.profit)
+                  : "text-[var(--muted)]"
+              }
             />
             <StatTile
               label="Sell-through"
@@ -164,7 +186,7 @@ export default function DashboardPage() {
                     <li key={row.month}>
                       <div className="mb-1 flex justify-between text-sm">
                         <span>{row.month}</span>
-                        <span>
+                        <span className={profitToneClass(row.profit)}>
                           {row.sold} sold · {formatMoney(row.profit)}
                         </span>
                       </div>
@@ -204,11 +226,7 @@ export default function DashboardPage() {
                           {row.inStock} available · {row.sold} sold
                         </p>
                       </div>
-                      <p
-                        className={
-                          row.profit >= 0 ? "profit-pos" : "profit-neg"
-                        }
-                      >
+                      <p className={profitToneClass(row.profit)}>
                         {formatMoney(row.profit)}
                       </p>
                     </li>
@@ -231,7 +249,7 @@ export default function DashboardPage() {
                         {row.inStock} available · {row.sold} sold
                       </p>
                     </div>
-                    <p className={row.profit >= 0 ? "profit-pos" : "profit-neg"}>
+                    <p className={profitToneClass(row.profit)}>
                       {formatMoney(row.profit)}
                     </p>
                   </li>
@@ -273,32 +291,37 @@ export default function DashboardPage() {
               </p>
             ) : (
               <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {stats.recentlySold.map((deal) => (
-                  <li key={deal.id}>
-                    <Link
-                      href={`/inventory/${deal.id}`}
-                      className="flex gap-3 rounded-none border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
-                    >
-                      <div className="h-16 w-16 overflow-hidden rounded-none bg-[var(--bg-deep)]">
-                        {deal.coverPhoto ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={photoUrl(deal.coverPhoto.filename)}
-                            alt=""
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{deal.name}</p>
-                        <p className="text-sm text-[var(--muted)]">
-                          {deal.soldAt?.slice(0, 10)} ·{" "}
-                          {formatMoney(deal.price - deal.cost)}
-                        </p>
-                      </div>
-                    </Link>
-                  </li>
-                ))}
+                {stats.recentlySold.map((deal) => {
+                  const soldProfit = deal.price - deal.cost;
+                  return (
+                    <li key={deal.id}>
+                      <Link
+                        href={`/inventory/${deal.id}`}
+                        className="flex gap-3 rounded-none border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
+                      >
+                        <div className="h-16 w-16 overflow-hidden rounded-none bg-[var(--bg-deep)]">
+                          {deal.coverPhoto ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={photoUrl(deal.coverPhoto.filename)}
+                              alt=""
+                              className="h-full w-full object-cover"
+                            />
+                          ) : null}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{deal.name}</p>
+                          <p className="text-sm text-[var(--muted)]">
+                            {deal.soldAt?.slice(0, 10)} ·{" "}
+                            <span className={profitToneClass(soldProfit)}>
+                              {formatMoney(soldProfit)}
+                            </span>
+                          </p>
+                        </div>
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

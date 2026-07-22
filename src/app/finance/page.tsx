@@ -5,7 +5,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FINANCE_CATEGORIES } from "@/db/schema";
 import type { FinanceSummary } from "@/lib/finance";
-import { formatMoney, toInputDate } from "@/lib/format";
+import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
 
 export default function FinancePage() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -172,9 +172,9 @@ export default function FinancePage() {
             <div className="surface rounded-none p-4">
               <p className="page-kicker">Deal profit</p>
               <p
-                className={`page-title mt-2 text-2xl ${
-                  summary.dealProfit >= 0 ? "profit-pos" : "profit-neg"
-                }`}
+                className={`page-title mt-2 text-2xl ${profitToneClass(
+                  summary.dealProfit,
+                )}`}
               >
                 {formatMoney(summary.dealProfit)}
               </p>
@@ -259,9 +259,9 @@ export default function FinancePage() {
                           {formatMoney(row.price)}
                         </td>
                         <td
-                          className={`py-3 pr-3 whitespace-nowrap ${
-                            row.profit >= 0 ? "profit-pos" : "profit-neg"
-                          }`}
+                          className={`py-3 pr-3 whitespace-nowrap ${profitToneClass(
+                            row.profit,
+                          )}`}
                         >
                           {formatMoney(row.profit)}
                         </td>
@@ -289,11 +289,7 @@ export default function FinancePage() {
                       <span>
                         {row.month} · {row.sold} sold
                       </span>
-                      <span
-                        className={
-                          row.profit >= 0 ? "profit-pos" : "profit-neg"
-                        }
-                      >
+                      <span className={profitToneClass(row.profit)}>
                         {formatMoney(row.profit)}
                       </span>
                     </li>

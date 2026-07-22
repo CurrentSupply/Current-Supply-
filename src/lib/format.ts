@@ -9,6 +9,13 @@ export function calcProfit(price: number, cost: number): number {
   return price - cost;
 }
 
+/** Green for profit, red for loss, muted for exactly zero. */
+export function profitToneClass(amount: number): string {
+  if (amount > 0) return "profit-pos";
+  if (amount < 0) return "profit-neg";
+  return "profit-zero";
+}
+
 export function calcRoi(price: number, cost: number): number | null {
   if (cost === 0) return null;
   return ((price - cost) / cost) * 100;
