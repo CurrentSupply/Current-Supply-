@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import {
   clearCoverFlags,
   deletePhotoRow,
@@ -19,7 +20,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     const photoId = Number(id);
     const photo = await getPhoto(photoId);
     if (!photo) {
-      return NextResponse.json({ error: "Photo not found." }, { status: 404 });
+      return jsonError("Photo not found.", 404);
     }
 
     await deleteUpload(photo.filename);
@@ -39,7 +40,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     const deal = await getDeal(dealId);
     return NextResponse.json(deal);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not delete photo.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not delete photo.");
   }
 }

@@ -1,5 +1,6 @@
 import { ensureDb, getServiceSupabase, listCategoryRows } from "@/db";
 import {
+  DEAL_OWNER_LABELS,
   mapCategory,
   mapDeal,
   mapPhoto,
@@ -55,7 +56,16 @@ export async function listCategories(): Promise<Category[]> {
   return listCategoryRows();
 }
 
-export async function listDeals(filters: DealFilters = {}): Promise<DealWithRelations[]> {
+export type ListDealsOptions = {
+  /** When false, skips photo fetch (empty photos / null cover). Default true. */
+  includePhotos?: boolean;
+};
+
+export async function listDeals(
+  filters: DealFilters = {},
+  options: ListDealsOptions = {},
+): Promise<DealWithRelations[]> {
+  const includePhotos = options.includePhotos !== false;
   await ensureDb();
   const supabase = getServiceSupabase();
 
@@ -92,15 +102,20 @@ export async function listDeals(filters: DealFilters = {}): Promise<DealWithRela
   const deals = ((data ?? []) as DealRow[]).map(mapDeal);
   if (deals.length === 0) return [];
 
+  const catPromise = supabase.from("categories").select("id,name,created_at");
+  const photoPromise = includePhotos
+    ? supabase
+        .from("photos")
+        .select("*")
+        .in(
+          "deal_id",
+          deals.map((d) => d.id),
+        )
+    : Promise.resolve({ data: [] as PhotoRow[] });
+
   const [{ data: catRows }, { data: photoRows }] = await Promise.all([
-    supabase.from("categories").select("id,name,created_at"),
-    supabase
-      .from("photos")
-      .select("*")
-      .in(
-        "deal_id",
-        deals.map((d) => d.id),
-      ),
+    catPromise,
+    photoPromise,
   ]);
 
   const categoriesById = new Map(
@@ -111,11 +126,13 @@ export async function listDeals(filters: DealFilters = {}): Promise<DealWithRela
   );
 
   const photosByDeal = new Map<number, Photo[]>();
-  for (const row of (photoRows ?? []) as PhotoRow[]) {
-    const photo = mapPhoto(row);
-    const list = photosByDeal.get(photo.dealId) ?? [];
-    list.push(photo);
-    photosByDeal.set(photo.dealId, list);
+  if (includePhotos) {
+    for (const row of (photoRows ?? []) as PhotoRow[]) {
+      const photo = mapPhoto(row);
+      const list = photosByDeal.get(photo.dealId) ?? [];
+      list.push(photo);
+      photosByDeal.set(photo.dealId, list);
+    }
   }
 
   const withRelations = deals.map((deal) =>
@@ -360,7 +377,7 @@ export type DashboardStats = {
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const all = await listDeals({ sort: "newest" });
+  const all = await listDeals({ sort: "newest" }, { includePhotos: false });
 
   const inStock = all.filter((d) => d.status === "in_stock");
   const sold = all.filter((d) => d.status === "sold");
@@ -418,7 +435,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     { count: number; inStock: number; sold: number; profit: number }
   >();
   for (const d of all) {
-    const name = d.owner === "mizzy" ? "Mizzy" : d.owner === "mac" ? "Mac" : "Other";
+    const name = DEAL_OWNER_LABELS[parseDealOwner(d.owner)];
     const current = ownerMap.get(name) ?? {
       count: 0,
       inStock: 0,

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { DealCard } from "@/components/DealCard";
 import {
   InventoryFilters,
@@ -10,24 +11,64 @@ import {
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
-import type { Category } from "@/db/schema";
+import { DEAL_OWNERS, type Category, type DealOwner } from "@/db/schema";
 import { markDealSold } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import { getJson } from "@/lib/http";
 
-const defaultFilters: InventoryFilterState = {
-  q: "",
-  status: "all",
-  owner: "all",
-  categoryId: "all",
-  size: "",
-  purchasedFrom: "",
-  purchasedTo: "",
-  sort: "newest",
-};
+const SORTS = new Set<InventoryFilterState["sort"]>([
+  "newest",
+  "oldest",
+  "name",
+  "profit",
+  "price",
+]);
 
-export default function InventoryPage() {
-  const [filters, setFilters] = useState<InventoryFilterState>(defaultFilters);
+function filtersFromSearchParams(
+  searchParams: URLSearchParams,
+): InventoryFilterState {
+  const statusRaw = searchParams.get("status");
+  const status =
+    statusRaw === "in_stock" || statusRaw === "sold" ? statusRaw : "all";
+
+  const ownerRaw = searchParams.get("owner");
+  const owner =
+    ownerRaw && (DEAL_OWNERS as readonly string[]).includes(ownerRaw)
+      ? (ownerRaw as DealOwner)
+      : "all";
+
+  const sortRaw = searchParams.get("sort");
+  const sort =
+    sortRaw && SORTS.has(sortRaw as InventoryFilterState["sort"])
+      ? (sortRaw as InventoryFilterState["sort"])
+      : "newest";
+
+  const categoryId = searchParams.get("categoryId");
+  const categoryOk =
+    categoryId &&
+    categoryId !== "all" &&
+    Number.isFinite(Number(categoryId)) &&
+    Number(categoryId) > 0
+      ? categoryId
+      : "all";
+
+  return {
+    q: searchParams.get("q") ?? "",
+    status,
+    owner,
+    categoryId: categoryOk,
+    size: searchParams.get("size") ?? "",
+    purchasedFrom: searchParams.get("purchasedFrom") ?? "",
+    purchasedTo: searchParams.get("purchasedTo") ?? "",
+    sort,
+  };
+}
+
+function InventoryPageInner() {
+  const searchParams = useSearchParams();
+  const [filters, setFilters] = useState<InventoryFilterState>(() =>
+    filtersFromSearchParams(searchParams),
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [deals, setDeals] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,5 +174,13 @@ export default function InventoryPage() {
         }}
       />
     </div>
+  );
+}
+
+export default function InventoryPage() {
+  return (
+    <Suspense fallback={<PageLoading label="Loading deals…" />}>
+      <InventoryPageInner />
+    </Suspense>
   );
 }

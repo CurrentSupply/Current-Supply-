@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { ensureDb } from "@/db";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import { getDeal } from "@/lib/deals";
 import {
   ALLOWED_IMAGE_TYPES,
@@ -30,26 +31,23 @@ export async function POST(request: Request) {
     const fileSize = Number(body.fileSize ?? 0);
 
     if (!Number.isFinite(dealId) || dealId <= 0) {
-      return NextResponse.json({ error: "Invalid dealId." }, { status: 400 });
+      return jsonError("Invalid dealId.", 400);
     }
 
     const deal = await getDeal(dealId);
     if (!deal) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
 
     if (!ALLOWED_IMAGE_TYPES.has(contentType)) {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${contentType || originalName}` },
-        { status: 400 },
+      return jsonError(
+        `Unsupported file type: ${contentType || originalName}`,
+        400,
       );
     }
 
     if (fileSize > MAX_PHOTO_BYTES) {
-      return NextResponse.json(
-        { error: `${originalName} is larger than 8MB.` },
-        { status: 400 },
-      );
+      return jsonError(`${originalName} is larger than 8MB.`, 400);
     }
 
     const ext = extForContentType(contentType, originalName);
@@ -61,10 +59,7 @@ export async function POST(request: Request) {
       .createSignedUploadUrl(path, { upsert: true });
 
     if (error || !data) {
-      return NextResponse.json(
-        { error: error?.message || "Could not create upload URL." },
-        { status: 500 },
-      );
+      return jsonError(error?.message || "Could not create upload URL.", 500);
     }
 
     const base = getSupabaseUrl().replace(/\/$/, "");
@@ -78,7 +73,6 @@ export async function POST(request: Request) {
       contentType,
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not sign upload.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not sign upload.");
   }
 }

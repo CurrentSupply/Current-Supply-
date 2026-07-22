@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import type { Photo } from "@/db/schema";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import {
   getDeal,
   insertPhoto,
@@ -38,7 +39,7 @@ export async function POST(request: Request, { params }: Params) {
     const dealId = Number(id);
     const deal = await getDeal(dealId);
     if (!deal) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
 
     const body = (await request.json()) as RegisterBody;
@@ -51,26 +52,20 @@ export async function POST(request: Request, { params }: Params) {
     const wantCover = Boolean(body.isCover);
 
     if (!path) {
-      return NextResponse.json({ error: "Missing path." }, { status: 400 });
+      return jsonError("Missing path.", 400);
     }
 
     // Path must be scoped to this deal (signed upload naming convention).
     if (!path.startsWith(`${dealId}-`) || path.includes("..") || path.includes("/")) {
-      return NextResponse.json({ error: "Invalid storage path." }, { status: 400 });
+      return jsonError("Invalid storage path.", 400);
     }
 
     if (contentType && !ALLOWED_IMAGE_TYPES.has(contentType)) {
-      return NextResponse.json(
-        { error: `Unsupported file type: ${contentType}` },
-        { status: 400 },
-      );
+      return jsonError(`Unsupported file type: ${contentType}`, 400);
     }
 
     if (fileSize > MAX_PHOTO_BYTES) {
-      return NextResponse.json(
-        { error: `${originalName} is larger than 8MB.` },
-        { status: 400 },
-      );
+      return jsonError(`${originalName} is larger than 8MB.`, 400);
     }
 
     const existingPhotos = await listPhotosForDeal(dealId);
@@ -96,8 +91,6 @@ export async function POST(request: Request, { params }: Params) {
     const full = await getDeal(dealId);
     return NextResponse.json({ photos: created, deal: full }, { status: 201 });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not register photo.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not register photo.");
   }
 }

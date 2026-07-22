@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
+import { formatMoney, calcProfit, profitToneClass, toInputDate } from "@/lib/format";
 
 type Props = {
   open: boolean;
@@ -26,7 +26,9 @@ function MarkSoldDialogForm({
 
   const salePrice = Number(price);
   const profit =
-    !Number.isNaN(salePrice) && cost !== undefined ? salePrice - cost : null;
+    !Number.isNaN(salePrice) && cost !== undefined
+      ? calcProfit(salePrice, cost)
+      : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();

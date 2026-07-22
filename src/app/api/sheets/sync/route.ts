@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { jsonCatch } from "@/lib/apiResponse";
 import { listDeals } from "@/lib/deals";
 import {
   isGoogleSheetsConfigured,
@@ -19,13 +20,14 @@ export async function POST() {
       );
     }
 
-    const deals = await listDeals({ sort: "newest" });
+    const deals = await listDeals(
+      { sort: "newest" },
+      { includePhotos: false },
+    );
     const result = await syncAllDealsToGoogleSheet(deals);
     return NextResponse.json(result);
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not sync Google Sheets.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not sync Google Sheets.");
   }
 }
 

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import { getDeal } from "@/lib/deals";
 import { formatMoney, photoUrl } from "@/lib/format";
 import { readUpload, saveUpload } from "@/lib/storage";
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const dealId = Number(body.dealId);
     if (!Number.isFinite(dealId) || dealId <= 0) {
-      return NextResponse.json({ error: "Pick a deal first." }, { status: 400 });
+      return jsonError("Pick a deal first.", 400);
     }
 
     const photoId = body.photoId ? Number(body.photoId) : null;
@@ -20,7 +21,7 @@ export async function POST(request: Request) {
         ? Number(body.price)
         : null;
     if (priceOverride !== null && !Number.isFinite(priceOverride)) {
-      return NextResponse.json({ error: "Price must be a number." }, { status: 400 });
+      return jsonError("Price must be a number.", 400);
     }
     const sizeOverride =
       body.size !== undefined && body.size !== null
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
 
     const deal = await getDeal(dealId);
     if (!deal) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
 
     const photo =
@@ -38,18 +39,12 @@ export async function POST(request: Request) {
         : deal.coverPhoto) ?? deal.photos[0];
 
     if (!photo) {
-      return NextResponse.json(
-        { error: "This deal has no photos to stamp." },
-        { status: 400 },
-      );
+      return jsonError("This deal has no photos to stamp.", 400);
     }
 
     const source = await readUpload(photo.filename);
     if (!source) {
-      return NextResponse.json(
-        { error: "Photo file is missing." },
-        { status: 404 },
-      );
+      return jsonError("Photo file is missing.", 404);
     }
 
     const sizeText = (sizeOverride ?? deal.size).trim();
@@ -103,9 +98,7 @@ export async function POST(request: Request) {
       price: priceText,
     });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not stamp image.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not stamp image.");
   }
 }
 

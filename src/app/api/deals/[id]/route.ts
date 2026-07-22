@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import { parseDealCondition, parseDealOwner } from "@/db/schema";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import { deleteDeal, getDeal, updateDeal } from "@/lib/deals";
 import {
   removeDealFromGoogleSheet,
@@ -21,16 +22,15 @@ export async function GET(_request: Request, { params }: Params) {
     const { id } = await params;
     const dealId = parseDealId(id);
     if (dealId === null) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
     const deal = await getDeal(dealId);
     if (!deal) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
     return NextResponse.json(deal);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load deal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Failed to load deal.");
   }
 }
 
@@ -40,11 +40,11 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params;
     const dealId = parseDealId(id);
     if (dealId === null) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
     const existing = await getDeal(dealId);
     if (!existing) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
 
     const body = await request.json();
@@ -54,8 +54,20 @@ export async function PATCH(request: Request, { params }: Params) {
 
     if (body.name !== undefined) updates.name = String(body.name).trim();
     if (body.size !== undefined) updates.size = String(body.size).trim();
-    if (body.cost !== undefined) updates.cost = Number(body.cost);
-    if (body.price !== undefined) updates.price = Number(body.price);
+    if (body.cost !== undefined) {
+      const cost = Number(body.cost);
+      if (!Number.isFinite(cost)) {
+        return jsonError("Cost must be a valid number.", 400);
+      }
+      updates.cost = cost;
+    }
+    if (body.price !== undefined) {
+      const price = Number(body.price);
+      if (!Number.isFinite(price)) {
+        return jsonError("Price must be a valid number.", 400);
+      }
+      updates.price = price;
+    }
     if (body.condition !== undefined) {
       updates.condition = parseDealCondition(body.condition);
     }
@@ -70,7 +82,14 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.purchased_at = String(body.purchasedAt).slice(0, 10);
     }
     if (body.categoryId !== undefined) {
-      updates.category_id = body.categoryId ? Number(body.categoryId) : null;
+      if (body.categoryId === null || body.categoryId === "") {
+        return jsonError("Category is required.", 400);
+      }
+      const categoryId = Number(body.categoryId);
+      if (!Number.isFinite(categoryId) || categoryId <= 0) {
+        return jsonError("Category is required.", 400);
+      }
+      updates.category_id = categoryId;
     }
 
     if (body.status !== undefined) {
@@ -85,7 +104,13 @@ export async function PATCH(request: Request, { params }: Params) {
           explicit ||
           (existing.soldAt ? String(existing.soldAt).slice(0, 10) : null) ||
           new Date().toISOString().slice(0, 10);
-        if (body.price !== undefined) updates.price = Number(body.price);
+        if (body.price !== undefined) {
+          const price = Number(body.price);
+          if (!Number.isFinite(price)) {
+            return jsonError("Price must be a valid number.", 400);
+          }
+          updates.price = price;
+        }
       } else {
         updates.sold_at = null;
       }
@@ -104,8 +129,7 @@ export async function PATCH(request: Request, { params }: Params) {
     void syncDealToGoogleSheet(full);
     return NextResponse.json(full);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not update deal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not update deal.");
   }
 }
 
@@ -115,11 +139,11 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { id } = await params;
     const dealId = parseDealId(id);
     if (dealId === null) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
     const existing = await getDeal(dealId);
     if (!existing) {
-      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+      return jsonError("Deal not found.", 404);
     }
 
     for (const photo of existing.photos) {
@@ -130,7 +154,6 @@ export async function DELETE(_request: Request, { params }: Params) {
     void removeDealFromGoogleSheet(dealId);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not delete deal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not delete deal.");
   }
 }

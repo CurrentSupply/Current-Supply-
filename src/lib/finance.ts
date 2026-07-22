@@ -128,7 +128,7 @@ function toSoldRow(d: DealWithRelations): SoldDealRow | null {
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const [entries, deals] = await Promise.all([
     listFinanceEntries().catch(() => [] as FinanceEntry[]),
-    listDeals({ sort: "newest" }),
+    listDeals({ sort: "newest" }, { includePhotos: false }),
   ]);
 
   const sold = deals.filter((d) => d.status === "sold");

@@ -39,7 +39,7 @@ export function serializeDealForm(values: DealFormValues): SerializedDealPayload
 }
 
 export function createDeal(values: DealFormValues) {
-  return postJson<{ id: number }>(
+  return postJson<DealWithRelations>(
     "/api/deals",
     serializeDealForm(values),
     "Could not create deal.",

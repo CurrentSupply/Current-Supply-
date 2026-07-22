@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
-import { PageEmpty, PageLoading } from "@/components/PageStatus";
+import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import {
@@ -32,6 +32,7 @@ export default function DealDetailPage() {
   const router = useRouter();
   const [deal, setDeal] = useState<DealWithRelations | null>(null);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
   const [soldDateError, setSoldDateError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
@@ -107,8 +108,17 @@ export default function DealDetailPage() {
                 type="button"
                 className="btn btn-secondary"
                 onClick={async () => {
-                  await markDealInStock(deal.id);
-                  await load();
+                  setActionError("");
+                  try {
+                    await markDealInStock(deal.id);
+                    await load();
+                  } catch (err) {
+                    setActionError(
+                      err instanceof Error
+                        ? err.message
+                        : "Could not mark in stock.",
+                    );
+                  }
                 }}
               >
                 Mark in stock
@@ -130,6 +140,8 @@ export default function DealDetailPage() {
           </>
         }
       />
+
+      {actionError ? <PageError message={actionError} /> : null}
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="surface overflow-hidden rounded-none">
@@ -273,8 +285,16 @@ export default function DealDetailPage() {
         danger
         onCancel={() => setConfirmDelete(false)}
         onConfirm={async () => {
-          await deleteDeal(deal.id);
-          router.push("/inventory");
+          setActionError("");
+          try {
+            await deleteDeal(deal.id);
+            router.push("/inventory");
+          } catch (err) {
+            setConfirmDelete(false);
+            setActionError(
+              err instanceof Error ? err.message : "Could not delete deal.",
+            );
+          }
         }}
       />
     </div>

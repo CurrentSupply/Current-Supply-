@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FINANCE_CATEGORIES, FINANCE_KINDS } from "@/db/schema";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import {
   createFinanceEntry,
   deleteFinanceEntry,
@@ -15,13 +16,11 @@ export async function GET() {
       err instanceof Error ? err.message : "Could not load finance data.";
     const needsMigration =
       /finance_entries|does not exist|schema cache/i.test(message);
-    return NextResponse.json(
-      {
-        error: needsMigration
-          ? "Finance table missing. Run supabase/migrations/003_condition_box_finance.sql in the Supabase SQL Editor."
-          : message,
-      },
-      { status: 500 },
+    return jsonError(
+      needsMigration
+        ? "Finance table missing. Run supabase/migrations/003_condition_box_finance.sql in the Supabase SQL Editor."
+        : message,
+      500,
     );
   }
 }
@@ -40,21 +39,15 @@ export async function POST(request: Request) {
         : null;
 
     if (!kind || !FINANCE_KINDS.includes(kind)) {
-      return NextResponse.json({ error: "Kind must be in or out." }, { status: 400 });
+      return jsonError("Kind must be in or out.", 400);
     }
-    if (!entryDate || Number.isNaN(amount) || amount < 0) {
-      return NextResponse.json(
-        { error: "Date and a valid amount are required." },
-        { status: 400 },
-      );
+    if (!entryDate || !Number.isFinite(amount) || amount < 0) {
+      return jsonError("Date and a valid amount are required.", 400);
     }
     if (
-      !FINANCE_CATEGORIES.includes(
-        category as (typeof FINANCE_CATEGORIES)[number],
-      ) &&
-      category !== "Other"
+      !(FINANCE_CATEGORIES as readonly string[]).includes(category)
     ) {
-      // Allow custom but prefer known list — still accept any non-empty.
+      return jsonError("Invalid finance category.", 400);
     }
 
     const entry = await createFinanceEntry({
@@ -67,9 +60,7 @@ export async function POST(request: Request) {
     });
     return NextResponse.json(entry, { status: 201 });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not create finance entry.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not create finance entry.");
   }
 }
 
@@ -78,13 +69,11 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url);
     const id = Number(searchParams.get("id"));
     if (!Number.isFinite(id) || id <= 0) {
-      return NextResponse.json({ error: "Invalid id." }, { status: 400 });
+      return jsonError("Invalid id.", 400);
     }
     await deleteFinanceEntry(id);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message =
-      err instanceof Error ? err.message : "Could not delete finance entry.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not delete finance entry.");
   }
 }

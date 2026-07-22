@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import { parseDealCondition, parseDealOwner } from "@/db/schema";
-import { jsonCatch } from "@/lib/apiResponse";
+import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import {
   createDeal,
   listDeals,
@@ -51,12 +51,16 @@ export async function POST(request: Request) {
     const purchasedAt = String(body.purchasedAt ?? "").slice(0, 10);
     const owner = parseDealOwner(body.owner);
     const condition = parseDealCondition(body.condition);
+    const categoryId = Number(body.categoryId);
 
-    if (!name || !size || Number.isNaN(cost) || Number.isNaN(price) || !purchasedAt) {
-      return NextResponse.json(
-        { error: "Name, size, cost, price, and purchase date are required." },
-        { status: 400 },
+    if (!name || !size || !Number.isFinite(cost) || !Number.isFinite(price) || !purchasedAt) {
+      return jsonError(
+        "Name, size, cost, price, and purchase date are required.",
+        400,
       );
+    }
+    if (!Number.isFinite(categoryId) || categoryId <= 0) {
+      return jsonError("Category is required.", 400);
     }
 
     const status = body.status === "sold" ? "sold" : "in_stock";
@@ -73,7 +77,7 @@ export async function POST(request: Request) {
       condition,
       hasBox: Boolean(body.hasBox),
       hasInsoles: Boolean(body.hasInsoles),
-      categoryId: body.categoryId ? Number(body.categoryId) : null,
+      categoryId,
       status,
       owner,
       purchasedAt,
@@ -88,13 +92,11 @@ export async function POST(request: Request) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not create deal.";
     const needsMigration = /has_box|has_insoles|schema cache/i.test(message);
-    return NextResponse.json(
-      {
-        error: needsMigration
-          ? "Database needs an update. Run supabase/migrations/003_condition_box_finance.sql in the Supabase SQL Editor."
-          : message,
-      },
-      { status: 500 },
+    return jsonError(
+      needsMigration
+        ? "Database needs an update. Run supabase/migrations/003_condition_box_finance.sql in the Supabase SQL Editor."
+        : message,
+      500,
     );
   }
 }
