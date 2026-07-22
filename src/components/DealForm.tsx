@@ -174,7 +174,7 @@ export function DealForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="surface rounded-none p-5 sm:p-6">
+    <form onSubmit={handleSubmit} className="surface min-w-0 rounded-none p-5 sm:p-6">
       <div className="field mb-5">
         <label htmlFor="cover-photo">Cover photo</label>
         <input
@@ -249,7 +249,7 @@ export function DealForm({
         </div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
         <div className="field sm:col-span-2">
           <label htmlFor="name">Item name</label>
           <input
@@ -390,26 +390,28 @@ export function DealForm({
             ))}
           </select>
         </div>
-        <div className="field sm:col-span-2">
-          <span className="mb-2 block text-sm font-medium">Includes</span>
-          <div className="flex flex-wrap gap-5">
-            <label className="flex items-center gap-2 text-sm">
+        <div className="min-w-0 sm:col-span-2">
+          <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
+            Includes
+          </p>
+          <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
+            <label className="flex w-full cursor-pointer items-center gap-2 py-2 text-sm text-[var(--ink)] sm:w-auto sm:py-1">
               <input
                 type="checkbox"
                 checked={values.hasBox}
                 onChange={(e) => update("hasBox", e.target.checked)}
-                className="h-4 w-4 accent-black"
+                className="h-4 w-4 shrink-0 accent-black"
               />
-              Box
+              <span>Box</span>
             </label>
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex w-full cursor-pointer items-center gap-2 py-2 text-sm text-[var(--ink)] sm:w-auto sm:py-1">
               <input
                 type="checkbox"
                 checked={values.hasInsoles}
                 onChange={(e) => update("hasInsoles", e.target.checked)}
-                className="h-4 w-4 accent-black"
+                className="h-4 w-4 shrink-0 accent-black"
               />
-              Insoles
+              <span>Insoles</span>
             </label>
           </div>
         </div>
@@ -437,12 +439,20 @@ export function DealForm({
 
       {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
 
-      <div className="mt-5 flex flex-wrap gap-2">
-        <button type="submit" className="btn btn-primary" disabled={busy}>
+      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <button
+          type="submit"
+          className="btn btn-primary w-full sm:w-auto"
+          disabled={busy}
+        >
           {busy ? "Saving…" : submitLabel}
         </button>
         {onCancel ? (
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+          <button
+            type="button"
+            className="btn btn-secondary w-full sm:w-auto"
+            onClick={onCancel}
+          >
             Cancel
           </button>
         ) : null}

@@ -65,65 +65,79 @@ export function MarkSoldDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
       onClick={onClose}
     >
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="surface w-full max-w-md rounded-none border-black p-5"
+        className="surface flex max-h-[min(100dvh,100%)] w-full max-w-md flex-col overflow-hidden rounded-none border-black sm:max-h-[min(90dvh,100%)]"
       >
-        <h2 className="page-title text-xl">Confirm sale price</h2>
-        <p className="mt-1 text-sm text-[var(--muted)]">
-          {dealName ? (
-            <>
-              Selling <span className="font-medium text-[var(--ink)]">{dealName}</span>
-              . Listed at {formatMoney(listPrice)}
-              {cost !== undefined ? ` · cost ${formatMoney(cost)}` : ""}.
-            </>
-          ) : (
-            <>Confirm the final sale price and date.</>
-          )}
-        </p>
-        <div className="mt-4 grid gap-3">
-          <div className="field">
-            <label htmlFor="sold-price">Final sale price</label>
-            <input
-              id="sold-price"
-              type="number"
-              min="0"
-              step="0.01"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              autoFocus
-              required
-            />
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-3">
+          <h2 className="page-title text-xl">Confirm sale price</h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            {dealName ? (
+              <>
+                Selling{" "}
+                <span className="font-medium text-[var(--ink)]">{dealName}</span>
+                . Listed at {formatMoney(listPrice)}
+                {cost !== undefined ? ` · cost ${formatMoney(cost)}` : ""}.
+              </>
+            ) : (
+              <>Confirm the final sale price and date.</>
+            )}
+          </p>
+          <div className="mt-4 grid min-w-0 gap-3">
+            <div className="field">
+              <label htmlFor="sold-price">Final sale price</label>
+              <input
+                id="sold-price"
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <div className="field">
+              <label htmlFor="sold-at">Sold date</label>
+              <input
+                id="sold-at"
+                type="date"
+                value={soldAt}
+                onChange={(e) => setSoldAt(e.target.value)}
+                required
+              />
+            </div>
+            {profit !== null ? (
+              <p className="text-sm text-[var(--muted)]">
+                Profit at this price:{" "}
+                <span className={profit >= 0 ? "profit-pos" : "profit-neg"}>
+                  {formatMoney(profit)}
+                </span>
+              </p>
+            ) : null}
+            {error ? (
+              <p className="text-sm text-[var(--danger)]">{error}</p>
+            ) : null}
           </div>
-          <div className="field">
-            <label htmlFor="sold-at">Sold date</label>
-            <input
-              id="sold-at"
-              type="date"
-              value={soldAt}
-              onChange={(e) => setSoldAt(e.target.value)}
-              required
-            />
-          </div>
-          {profit !== null ? (
-            <p className="text-sm text-[var(--muted)]">
-              Profit at this price:{" "}
-              <span className={profit >= 0 ? "profit-pos" : "profit-neg"}>
-                {formatMoney(profit)}
-              </span>
-            </p>
-          ) : null}
         </div>
-        {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
-        <div className="mt-5 flex justify-end gap-2">
-          <button type="button" className="btn btn-secondary" onClick={onClose}>
+        <div className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-[var(--line)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            className="btn btn-secondary w-full sm:w-auto"
+            onClick={onClose}
+          >
             Cancel
           </button>
-          <button type="submit" className="btn btn-primary" disabled={busy}>
+          <button
+            type="submit"
+            className="btn btn-primary w-full sm:w-auto"
+            disabled={busy}
+          >
             {busy ? "Saving…" : "Confirm sold"}
           </button>
         </div>

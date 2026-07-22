@@ -30,6 +30,7 @@
 html,
 body {
   min-height: 100%;
+  overflow-x: hidden;
 }
 
 body {
@@ -52,6 +53,19 @@ input,
 select,
 textarea {
   font: inherit;
+  box-sizing: border-box;
+}
+
+/* iOS/WebKit date controls have a large intrinsic min-width */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="time"],
+input[type="week"],
+select {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .surface {
@@ -99,6 +113,8 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .field label {
@@ -109,10 +125,13 @@ textarea {
   color: var(--muted);
 }
 
-.field input,
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
 .field select,
 .field textarea {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid var(--line);
   background: white;
   border-radius: 0;
@@ -122,14 +141,34 @@ textarea {
   transition: border-color 0.15s ease;
 }
 
-.field input:focus,
+.field input[type="date"],
+.field input[type="datetime-local"],
+.field input[type="month"],
+.field input[type="time"],
+.field input[type="week"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.field input[type="checkbox"],
+.field input[type="radio"] {
+  width: auto;
+  max-width: none;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0;
+  flex-shrink: 0;
+  accent-color: #000;
+}
+
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
 .field select:focus,
 .field textarea:focus {
   border-color: var(--ink);
   box-shadow: none;
 }
 
-.field input:disabled,
+.field input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):disabled,
 .field select:disabled,
 .field textarea:disabled {
   background: #f3f3f3;

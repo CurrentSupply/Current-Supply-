@@ -195,7 +195,7 @@ export default function DealDetailPage() {
                   <div>
                     <input
                       type="date"
-                      className="mt-0.5 w-full border border-[var(--line)] bg-white px-2 py-1.5 text-base font-medium text-[var(--ink)]"
+                      className="mt-0.5 w-full max-w-full min-w-0 border border-[var(--line)] bg-white px-2 py-1.5 text-base font-medium text-[var(--ink)]"
                       value={deal.soldAt ? deal.soldAt.slice(0, 10) : ""}
                       onChange={async (e) => {
                         const soldAt = e.target.value;
