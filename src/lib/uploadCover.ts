@@ -34,15 +34,14 @@ async function signUpload(dealId: number, file: File) {
 }
 
 async function putToSignedUrl(signedUrl: string, file: File) {
-  // Match @supabase/storage-js uploadToSignedUrl (FormData + PUT).
-  const body = new FormData();
-  body.append("cacheControl", "3600");
-  body.append("", file);
-
+  // PUT bytes straight to Supabase (never through Vercel — avoids 413).
   const res = await fetch(signedUrl, {
     method: "PUT",
-    headers: { "x-upsert": "true" },
-    body,
+    headers: {
+      "Content-Type": file.type || "application/octet-stream",
+      "x-upsert": "true",
+    },
+    body: file,
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
