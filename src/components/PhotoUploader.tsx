@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { Photo } from "@/db/schema";
 import { photoUrl } from "@/lib/format";
+import { uploadDealPhotos } from "@/lib/uploadCover";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Props = {
@@ -25,14 +26,7 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
     setBusy(true);
     setError("");
     try {
-      const form = new FormData();
-      for (const file of list) form.append("files", file);
-      const res = await fetch(`/api/deals/${dealId}/photos`, {
-        method: "POST",
-        body: form,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed.");
+      await uploadDealPhotos(dealId, list);
       await onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");

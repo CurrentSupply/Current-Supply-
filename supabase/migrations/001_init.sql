@@ -68,21 +68,26 @@ ON storage.objects FOR SELECT
 TO public
 USING (bucket_id = 'deal-photos');
 
--- Service role bypasses RLS; these help if anon key is ever used for uploads
+-- Signed uploads use a short-lived token from the service role; these policies
+-- cover anon/authenticated clients that PUT via createSignedUploadUrl.
 DROP POLICY IF EXISTS "Authenticated upload deal-photos" ON storage.objects;
-CREATE POLICY "Authenticated upload deal-photos"
+DROP POLICY IF EXISTS "Anon upload deal-photos" ON storage.objects;
+CREATE POLICY "Anon upload deal-photos"
 ON storage.objects FOR INSERT
-TO authenticated
+TO anon, authenticated
 WITH CHECK (bucket_id = 'deal-photos');
 
 DROP POLICY IF EXISTS "Authenticated update deal-photos" ON storage.objects;
-CREATE POLICY "Authenticated update deal-photos"
+DROP POLICY IF EXISTS "Anon update deal-photos" ON storage.objects;
+CREATE POLICY "Anon update deal-photos"
 ON storage.objects FOR UPDATE
-TO authenticated
-USING (bucket_id = 'deal-photos');
+TO anon, authenticated
+USING (bucket_id = 'deal-photos')
+WITH CHECK (bucket_id = 'deal-photos');
 
 DROP POLICY IF EXISTS "Authenticated delete deal-photos" ON storage.objects;
-CREATE POLICY "Authenticated delete deal-photos"
+DROP POLICY IF EXISTS "Anon delete deal-photos" ON storage.objects;
+CREATE POLICY "Anon delete deal-photos"
 ON storage.objects FOR DELETE
-TO authenticated
+TO anon, authenticated
 USING (bucket_id = 'deal-photos');
