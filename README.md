@@ -35,8 +35,15 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key (Settings → API) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server uploads/DB helpers |
 | `DATABASE_URL` | Optional Postgres URI (Settings → Database → Connection string, pooler) |
+| `GOOGLE_SHEETS_SPREADSHEET_ID` | Optional — spreadsheet ID for Deals tab sync |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` | Optional — service account `client_email` |
+| `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | Optional — service account `private_key` |
 
 Set the same vars in Vercel → Project → Settings → Environment Variables (all environments), then redeploy.
+
+### Google Sheets (optional)
+
+Auto-sync uses a **service account**, not an OAuth Web client. Create a service account JSON key, share a sheet (tab name `Deals`) with that email as Editor, set the three `GOOGLE_*` vars above on Vercel, redeploy, then use **Finance → Sync Google Sheets**. New deals sync automatically once configured. See Finance page banner and `.env.example` for full steps.
 
 ## Features
 

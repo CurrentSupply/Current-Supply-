@@ -111,17 +111,50 @@ export default function FinancePage() {
         <p className="text-sm text-[var(--muted)]">{syncMsg}</p>
       ) : null}
       {summary && !summary.sheetsConfigured ? (
-        <p className="border border-black bg-[#f3f3f3] p-3 text-sm">
-          Google Sheets sync is optional. Add{" "}
-          <code className="font-mono text-xs">GOOGLE_SHEETS_SPREADSHEET_ID</code>
-          ,{" "}
-          <code className="font-mono text-xs">GOOGLE_SERVICE_ACCOUNT_EMAIL</code>
-          , and{" "}
-          <code className="font-mono text-xs">
-            GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
-          </code>{" "}
-          on Vercel, share the sheet with the service account, then hit Sync.
-        </p>
+        <div className="border border-black bg-[#f3f3f3] p-4 text-sm">
+          <p className="font-semibold">Set up Google Sheets auto-sync</p>
+          <p className="mt-1 text-[var(--muted)]">
+            Uses a Google Cloud <strong>service account</strong> (not an OAuth
+            “Web application” client ID/secret). Once configured, new and updated
+            deals sync automatically; use the button above for a full rewrite.
+          </p>
+          <ol className="mt-3 list-decimal space-y-1.5 pl-5">
+            <li>
+              Google Cloud Console → APIs &amp; Services → enable{" "}
+              <strong>Google Sheets API</strong>.
+            </li>
+            <li>
+              IAM &amp; Admin → Service Accounts → Create → open the account →
+              Keys → Add key → Create new key → <strong>JSON</strong>. Save the
+              file locally (do not commit it).
+            </li>
+            <li>
+              Create a spreadsheet with a tab named exactly{" "}
+              <code className="font-mono text-xs">Deals</code>. Share it with the
+              service account email from the JSON (
+              <code className="font-mono text-xs">client_email</code>) as{" "}
+              <strong>Editor</strong>.
+            </li>
+            <li>
+              On Vercel → Settings → Environment Variables (Production + Preview),
+              set{" "}
+              <code className="font-mono text-xs">
+                GOOGLE_SHEETS_SPREADSHEET_ID
+              </code>{" "}
+              (from the sheet URL),{" "}
+              <code className="font-mono text-xs">
+                GOOGLE_SERVICE_ACCOUNT_EMAIL
+              </code>{" "}
+              (<code className="font-mono text-xs">client_email</code>), and{" "}
+              <code className="font-mono text-xs">
+                GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+              </code>{" "}
+              (<code className="font-mono text-xs">private_key</code>, keep
+              newlines as <code className="font-mono text-xs">\n</code>). Redeploy,
+              then Sync.
+            </li>
+          </ol>
+        </div>
       ) : null}
 
       {summary ? (
