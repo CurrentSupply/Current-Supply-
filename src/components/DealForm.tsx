@@ -118,6 +118,10 @@ export function DealForm({
       setError("Name and size are required.");
       return;
     }
+    if (!values.categoryId) {
+      setError("Category is required.");
+      return;
+    }
     if (Number.isNaN(Number(values.cost)) || Number.isNaN(Number(values.price))) {
       setError("Cost and price must be valid numbers.");
       return;
@@ -246,8 +250,11 @@ export function DealForm({
             id="categoryId"
             value={values.categoryId}
             onChange={(e) => update("categoryId", e.target.value)}
+            required
           >
-            <option value="">Uncategorized</option>
+            <option value="" disabled>
+              Select category
+            </option>
             {categories.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import type { DealWithRelations } from "@/lib/deals";
 import { formatMoney, photoUrl } from "@/lib/format";
+import { readJson } from "@/lib/http";
 
 function OverlayTool() {
   const searchParams = useSearchParams();
@@ -15,17 +16,34 @@ function OverlayTool() {
   const [photoId, setPhotoId] = useState("");
   const [size, setSize] = useState("");
   const [price, setPrice] = useState("");
+  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [resultUrl, setResultUrl] = useState("");
 
   useEffect(() => {
-    void fetch("/api/deals?sort=newest")
-      .then((r) => r.json())
-      .then((rows: DealWithRelations[]) => {
+    let cancelled = false;
+    setLoading(true);
+    setError("");
+
+    void (async () => {
+      try {
+        const res = await fetch("/api/deals?sort=newest");
+        const rows = await readJson<DealWithRelations[] | { error?: string }>(res);
+        if (!res.ok || !Array.isArray(rows)) {
+          throw new Error(
+            !Array.isArray(rows) && rows.error
+              ? rows.error
+              : "Could not load deals.",
+          );
+        }
+        if (cancelled) return;
+
         setDeals(rows);
         const chosen =
-          rows.find((d) => String(d.id) === initialDealId) ?? rows[0];
+          rows.find((d) => String(d.id) === initialDealId) ??
+          rows.find((d) => d.photos.length > 0) ??
+          rows[0];
         if (chosen) {
           setDealId(String(chosen.id));
           setSize(chosen.size);
@@ -33,7 +51,19 @@ function OverlayTool() {
           const cover = chosen.coverPhoto ?? chosen.photos[0];
           setPhotoId(cover ? String(cover.id) : "");
         }
-      });
+      } catch (err) {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : "Could not load deals.");
+          setDeals([]);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [initialDealId]);
 
   const selected = useMemo(
@@ -65,8 +95,9 @@ function OverlayTool() {
           price: Number(price),
         }),
       });
-      const data = await res.json();
+      const data = await readJson<{ url?: string; error?: string }>(res);
       if (!res.ok) throw new Error(data.error || "Could not stamp image.");
+      if (!data.url) throw new Error("Stamp succeeded but no image URL returned.");
       setResultUrl(data.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not stamp image.");
@@ -94,7 +125,11 @@ function OverlayTool() {
         </p>
       </div>
 
-      {deals.length === 0 ? (
+      {loading ? (
+        <p className="text-sm text-[var(--muted)]">Loading deals…</p>
+      ) : error && deals.length === 0 ? (
+        <p className="text-sm text-[var(--danger)]">{error}</p>
+      ) : deals.length === 0 ? (
         <div className="surface rounded-none px-6 py-14 text-center">
           <h2 className="text-xl font-semibold">No deals to stamp</h2>
           <p className="mt-2 text-[var(--muted)]">
@@ -117,6 +152,7 @@ function OverlayTool() {
                 {deals.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name} · {d.size}
+                    {d.photos.length === 0 ? " (no photos)" : ""}
                   </option>
                 ))}
               </select>

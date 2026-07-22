@@ -6,11 +6,20 @@ import { deleteUpload } from "@/lib/storage";
 
 type Params = { params: Promise<{ id: string }> };
 
+function parseDealId(raw: string): number | null {
+  const id = Number(raw);
+  return Number.isFinite(id) && id > 0 ? id : null;
+}
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     await ensureDb();
     const { id } = await params;
-    const deal = await getDeal(Number(id));
+    const dealId = parseDealId(id);
+    if (dealId === null) {
+      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+    }
+    const deal = await getDeal(dealId);
     if (!deal) {
       return NextResponse.json({ error: "Deal not found." }, { status: 404 });
     }
@@ -25,7 +34,10 @@ export async function PATCH(request: Request, { params }: Params) {
   try {
     await ensureDb();
     const { id } = await params;
-    const dealId = Number(id);
+    const dealId = parseDealId(id);
+    if (dealId === null) {
+      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+    }
     const existing = await getDeal(dealId);
     if (!existing) {
       return NextResponse.json({ error: "Deal not found." }, { status: 404 });
@@ -78,7 +90,10 @@ export async function DELETE(_request: Request, { params }: Params) {
   try {
     await ensureDb();
     const { id } = await params;
-    const dealId = Number(id);
+    const dealId = parseDealId(id);
+    if (dealId === null) {
+      return NextResponse.json({ error: "Deal not found." }, { status: 404 });
+    }
     const existing = await getDeal(dealId);
     if (!existing) {
       return NextResponse.json({ error: "Deal not found." }, { status: 404 });

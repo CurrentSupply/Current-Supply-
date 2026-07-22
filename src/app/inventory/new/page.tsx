@@ -11,6 +11,7 @@ import { uploadDealCover } from "@/lib/uploadCover";
 export default function NewDealPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
+  const [loadingCats, setLoadingCats] = useState(true);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
@@ -24,13 +25,17 @@ export default function NewDealPage() {
               : "Failed to load categories.",
           );
         }
-        setCategories(data as Category[]);
+        if (!Array.isArray(data)) {
+          throw new Error("Failed to load categories.");
+        }
+        setCategories(data);
       })
       .catch((err) =>
         setLoadError(
           err instanceof Error ? err.message : "Failed to load categories.",
         ),
-      );
+      )
+      .finally(() => setLoadingCats(false));
   }, []);
 
   async function createDeal({ values, coverFile }: DealFormSubmitPayload) {
@@ -72,12 +77,16 @@ export default function NewDealPage() {
           {loadError}
         </p>
       ) : null}
-      <DealForm
-        categories={categories}
-        submitLabel="Save deal"
-        onSubmit={createDeal}
-        onCancel={() => router.push("/inventory")}
-      />
+      {loadingCats ? (
+        <p className="text-sm text-[var(--muted)]">Loading form…</p>
+      ) : (
+        <DealForm
+          categories={categories}
+          submitLabel="Save deal"
+          onSubmit={createDeal}
+          onCancel={() => router.push("/inventory")}
+        />
+      )}
     </div>
   );
 }

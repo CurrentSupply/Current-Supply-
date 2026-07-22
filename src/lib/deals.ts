@@ -429,14 +429,26 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   return {
     inStockCount: inStock.length,
     soldCount: sold.length,
-    inventoryCost,
-    projectedProfit,
-    realizedProfit,
+    inventoryCost: roundMoney(inventoryCost),
+    projectedProfit: roundMoney(projectedProfit),
+    realizedProfit: roundMoney(realizedProfit),
     avgRoiSold,
     avgDaysHeldSold,
-    bestCategory,
-    byCategory,
-    byMonth,
+    bestCategory: bestCategory
+      ? { name: bestCategory.name, profit: roundMoney(bestCategory.profit) }
+      : null,
+    byCategory: byCategory.map((c) => ({
+      ...c,
+      profit: roundMoney(c.profit),
+    })),
+    byMonth: byMonth.map((m) => ({
+      ...m,
+      profit: roundMoney(m.profit),
+    })),
     recentlySold,
   };
+}
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }

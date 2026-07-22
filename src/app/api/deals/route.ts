@@ -24,7 +24,10 @@ export async function GET(request: Request) {
 
     const categoryId = searchParams.get("categoryId");
     if (categoryId && categoryId !== "all") {
-      filters.categoryId = Number(categoryId);
+      const parsed = Number(categoryId);
+      if (Number.isFinite(parsed) && parsed > 0) {
+        filters.categoryId = parsed;
+      }
     }
 
     const rows = await listDeals(filters);

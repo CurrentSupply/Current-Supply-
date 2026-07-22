@@ -10,11 +10,18 @@ export async function POST(request: Request) {
     await ensureDb();
     const body = await request.json();
     const dealId = Number(body.dealId);
+    if (!Number.isFinite(dealId) || dealId <= 0) {
+      return NextResponse.json({ error: "Pick a deal first." }, { status: 400 });
+    }
+
     const photoId = body.photoId ? Number(body.photoId) : null;
     const priceOverride =
-      body.price !== undefined && body.price !== null
+      body.price !== undefined && body.price !== null && body.price !== ""
         ? Number(body.price)
         : null;
+    if (priceOverride !== null && !Number.isFinite(priceOverride)) {
+      return NextResponse.json({ error: "Price must be a number." }, { status: 400 });
+    }
     const sizeOverride =
       body.size !== undefined && body.size !== null
         ? String(body.size)
