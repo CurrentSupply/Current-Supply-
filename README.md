@@ -2,6 +2,18 @@
 
 Reseller inventory app for deals, photos, profit metrics, and listing stamps.
 
+## Production
+
+Canonical deploy (Vercel project `current-supply` under **mc's projects**):
+
+**https://current-supply-sigma.vercel.app**
+
+Local CLI is linked to that project (`.vercel/`). Required env vars must be set for Production, Preview, and Development:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
 ## Setup
 
 1. Copy `.env.example` → `.env.local` and fill in Supabase credentials for project `onjguvlozsqxkurgqgbl`.
@@ -22,9 +34,9 @@ Open [http://localhost:3000](http://localhost:3000).
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://onjguvlozsqxkurgqgbl.supabase.co` |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key (Settings → API) |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key for server uploads/DB helpers |
-| `DATABASE_URL` | Postgres URI (Settings → Database → Connection string, pooler) |
+| `DATABASE_URL` | Optional Postgres URI (Settings → Database → Connection string, pooler) |
 
-Set the same vars in Vercel for production.
+Set the same vars in Vercel → Project → Settings → Environment Variables (all environments), then redeploy.
 
 ## Features
 
