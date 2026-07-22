@@ -5,23 +5,11 @@ import {
   setCoverPhoto,
   setPhotoSortOrder,
 } from "@/lib/deals";
+import { jsonCatch } from "@/lib/apiResponse";
 
 type Params = { params: Promise<{ id: string }> };
 
-/**
- * Photo file bytes must NOT go through this route (Vercel ~4.5MB body limit → 413).
- * Clients upload via /api/uploads/sign → Supabase Storage → /photos/register.
- */
-export async function POST() {
-  return NextResponse.json(
-    {
-      error:
-        "Direct photo upload is disabled. Refresh the page and try again (uploads go to storage).",
-    },
-    { status: 410 },
-  );
-}
-
+/** Cover/order updates only. File bytes go via /api/uploads/sign → register. */
 export async function PATCH(request: Request, { params }: Params) {
   try {
     await ensureDb();
@@ -42,7 +30,6 @@ export async function PATCH(request: Request, { params }: Params) {
     const full = await getDeal(dealId);
     return NextResponse.json(full);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Could not update photos.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Could not update photos.");
   }
 }

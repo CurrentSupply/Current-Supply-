@@ -4,8 +4,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
+import { PageHeader } from "@/components/PageHeader";
+import { PageError, PageLoading } from "@/components/PageStatus";
 import type { Category } from "@/db/schema";
+import { fetchDeal, updateDeal } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
+import { getJson } from "@/lib/http";
 import { uploadDealCover } from "@/lib/uploadCover";
 
 export default function EditDealPage() {
@@ -17,43 +21,28 @@ export default function EditDealPage() {
 
   useEffect(() => {
     void Promise.all([
-      fetch("/api/categories").then((r) => r.json()),
-      fetch(`/api/deals/${params.id}`).then(async (r) => {
-        if (!r.ok) throw new Error("Deal not found.");
-        return r.json();
-      }),
+      getJson<Category[]>("/api/categories", "Failed to load categories."),
+      fetchDeal(params.id),
     ])
       .then(([cats, d]) => {
         setCategories(cats);
         setDeal(d);
       })
-      .catch((err) => setError(err.message));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Could not load deal."),
+      );
   }, [params.id]);
 
   if (error) {
-    return <p className="text-[var(--danger)]">{error}</p>;
+    return <PageError message={error} />;
   }
 
   if (!deal) {
-    return <p className="text-sm text-[var(--muted)]">Loading…</p>;
+    return <PageLoading label="Loading…" />;
   }
 
   async function save({ values, coverFile }: DealFormSubmitPayload) {
-    const res = await fetch(`/api/deals/${params.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...values,
-        cost: Number(values.cost),
-        price: Number(values.price),
-        categoryId: values.categoryId ? Number(values.categoryId) : null,
-        hasBox: values.hasBox,
-        hasInsoles: values.hasInsoles,
-        soldAt: values.status === "sold" ? values.soldAt : null,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not save deal.");
+    await updateDeal(params.id, values);
 
     if (coverFile) {
       await uploadDealCover(Number(params.id), coverFile);
@@ -67,17 +56,18 @@ export default function EditDealPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
-      <div>
-        <Link
-          href={`/inventory/${params.id}`}
-          className="text-sm text-[var(--muted)] hover:text-[var(--ink)]"
-        >
-          ← Back to deal
-        </Link>
-        <h1 className="page-title mt-2 text-3xl">
-          Edit deal
-        </h1>
-      </div>
+      <PageHeader
+        kicker="Inventory"
+        title="Edit deal"
+        back={
+          <Link
+            href={`/inventory/${params.id}`}
+            className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
+          >
+            ← Back to deal
+          </Link>
+        }
+      />
       <DealForm
         categories={categories}
         initial={deal}

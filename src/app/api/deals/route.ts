@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import { parseDealCondition, parseDealOwner } from "@/db/schema";
+import { jsonCatch } from "@/lib/apiResponse";
 import {
   createDeal,
   listDeals,
@@ -34,8 +35,7 @@ export async function GET(request: Request) {
     const rows = await listDeals(filters);
     return NextResponse.json(rows);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to load deals.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return jsonCatch(err, "Failed to load deals.");
   }
 }
 

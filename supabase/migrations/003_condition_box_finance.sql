@@ -1,4 +1,6 @@
 -- Condition grades, box/insoles flags, and finance ledger
+-- For fresh installs, 001_init.sql already includes has_box, has_insoles, and
+-- finance_entries — run this only on older databases that predate those changes.
 -- Run in: Supabase Dashboard → SQL Editor → New query → Run
 
 ALTER TABLE deals

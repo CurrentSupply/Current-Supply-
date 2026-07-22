@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/PageHeader";
+import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import type { DealWithRelations } from "@/lib/deals";
 import { formatMoney, photoUrl } from "@/lib/format";
-import { readJson } from "@/lib/http";
+import { getJson, postJson } from "@/lib/http";
 
 function OverlayTool() {
   const searchParams = useSearchParams();
@@ -23,20 +25,13 @@ function OverlayTool() {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError("");
 
     void (async () => {
       try {
-        const res = await fetch("/api/deals?sort=newest");
-        const rows = await readJson<DealWithRelations[] | { error?: string }>(res);
-        if (!res.ok || !Array.isArray(rows)) {
-          throw new Error(
-            !Array.isArray(rows) && rows.error
-              ? rows.error
-              : "Could not load deals.",
-          );
-        }
+        const rows = await getJson<DealWithRelations[]>(
+          "/api/deals?sort=newest",
+          "Could not load deals.",
+        );
         if (cancelled) return;
 
         setDeals(rows);
@@ -71,32 +66,31 @@ function OverlayTool() {
     [deals, dealId],
   );
 
-  useEffect(() => {
-    if (!selected) return;
-    setSize(selected.size);
-    setPrice(String(selected.price));
-    const cover = selected.coverPhoto ?? selected.photos[0];
-    setPhotoId(cover ? String(cover.id) : "");
+  function selectDeal(nextId: string) {
+    setDealId(nextId);
     setResultUrl("");
-  }, [selected]);
-
+    const next = deals.find((d) => String(d.id) === nextId);
+    if (!next) return;
+    setSize(next.size);
+    setPrice(String(next.price));
+    const cover = next.coverPhoto ?? next.photos[0];
+    setPhotoId(cover ? String(cover.id) : "");
+  }
   async function stamp() {
     if (!selected) return;
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/overlay", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const data = await postJson<{ url?: string }>(
+        "/api/overlay",
+        {
           dealId: selected.id,
           photoId: photoId ? Number(photoId) : null,
           size,
           price: Number(price),
-        }),
-      });
-      const data = await readJson<{ url?: string; error?: string }>(res);
-      if (!res.ok) throw new Error(data.error || "Could not stamp image.");
+        },
+        "Could not stamp image.",
+      );
       if (!data.url) throw new Error("Stamp succeeded but no image URL returned.");
       setResultUrl(data.url);
     } catch (err) {
@@ -114,31 +108,26 @@ function OverlayTool() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="page-kicker">Listing Stamp</p>
-        <h1 className="page-title mt-1 text-3xl sm:text-4xl">
-          Price & size on photos
-        </h1>
-        <p className="mt-1 max-w-2xl text-[var(--muted)]">
-          Stamps size and price onto a deal photo for listings. Layout is a clean
-          default for now — we can match your reference image later.
-        </p>
-      </div>
+      <PageHeader
+        kicker="Listing Stamp"
+        title="Price & size on photos"
+        subtitle="Stamps size and price onto a deal photo for listings. Layout is a clean default for now — we can match your reference image later."
+      />
 
       {loading ? (
-        <p className="text-sm text-[var(--muted)]">Loading deals…</p>
+        <PageLoading label="Loading deals…" />
       ) : error && deals.length === 0 ? (
-        <p className="text-sm text-[var(--danger)]">{error}</p>
+        <PageError message={error} />
       ) : deals.length === 0 ? (
-        <div className="surface rounded-none px-6 py-14 text-center">
-          <h2 className="text-xl font-semibold">No deals to stamp</h2>
-          <p className="mt-2 text-[var(--muted)]">
-            Add a deal with a photo first.
-          </p>
-          <Link href="/inventory/new" className="btn btn-primary mt-5">
-            Add deal
-          </Link>
-        </div>
+        <PageEmpty
+          title="No deals to stamp"
+          description="Add a deal with a photo first."
+          action={
+            <Link href="/inventory/new" className="btn btn-primary">
+              Add deal
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
           <section className="surface space-y-4 rounded-none p-5">
@@ -147,7 +136,7 @@ function OverlayTool() {
               <select
                 id="deal"
                 value={dealId}
-                onChange={(e) => setDealId(e.target.value)}
+                onChange={(e) => selectDeal(e.target.value)}
               >
                 {deals.map((d) => (
                   <option key={d.id} value={d.id}>
@@ -198,7 +187,7 @@ function OverlayTool() {
                 />
               </div>
             </div>
-            {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+            {error ? <PageError message={error} /> : null}
             <button
               type="button"
               className="btn btn-primary w-full"
@@ -255,7 +244,7 @@ function OverlayTool() {
 
 export default function OverlayPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-[var(--muted)]">Loading…</p>}>
+    <Suspense fallback={<PageLoading />}>
       <OverlayTool />
     </Suspense>
   );

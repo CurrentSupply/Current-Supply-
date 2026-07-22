@@ -13,7 +13,14 @@ import {
   type DealCondition,
   type DealOwner,
 } from "@/db/schema";
-import { photoUrl, profitToneClass, toInputDate } from "@/lib/format";
+import {
+  calcProfit,
+  formatMoney,
+  photoUrl,
+  profitToneClass,
+  toInputDate,
+} from "@/lib/format";
+import { ALLOWED_IMAGE_TYPES, MAX_PHOTO_BYTES } from "@/lib/photoLimits";
 
 export type DealFormValues = {
   name: string;
@@ -96,7 +103,7 @@ export function DealForm({
     const cost = Number(values.cost);
     const price = Number(values.price);
     if (Number.isNaN(cost) || Number.isNaN(price)) return null;
-    return price - cost;
+    return calcProfit(price, cost);
   }, [values.cost, values.price]);
 
   function update<K extends keyof DealFormValues>(key: K, value: DealFormValues[K]) {
@@ -126,11 +133,11 @@ export function DealForm({
       setCoverFile(null);
       return;
     }
-    if (!file.type.startsWith("image/")) {
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
       setError("Cover photo must be an image (JPG, PNG, WebP, or GIF).");
       return;
     }
-    if (file.size > 8 * 1024 * 1024) {
+    if (file.size > MAX_PHOTO_BYTES) {
       setError("Cover photo must be 8MB or smaller.");
       return;
     }
@@ -431,8 +438,7 @@ export function DealForm({
         <p className="mt-4 text-sm text-[var(--muted)]">
           Profit preview:{" "}
           <span className={profitToneClass(profitPreview)}>
-            {profitPreview > 0 ? "+" : ""}
-            {profitPreview.toFixed(2)}
+            {formatMoney(profitPreview)}
           </span>
         </p>
       ) : null}

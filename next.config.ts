@@ -22,12 +22,6 @@ const nextConfig: NextConfig = {
       {
         pathname: "/current-supply-logo.png",
       },
-      {
-        pathname: "/api/media/**",
-      },
-      {
-        pathname: "/uploads/**",
-      },
     ],
   },
 };

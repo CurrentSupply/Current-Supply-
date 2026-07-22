@@ -1,5 +1,5 @@
 import { compressImage } from "@/lib/compressImage";
-import { readJson } from "@/lib/http";
+import { postJson } from "@/lib/http";
 import { ALLOWED_IMAGE_TYPES, MAX_PHOTO_BYTES } from "@/lib/photoLimits";
 
 type SignResponse = {
@@ -8,29 +8,23 @@ type SignResponse = {
   signedUrl: string;
   publicUrl: string;
   contentType: string;
-  error?: string;
 };
 
 type RegisterResponse = {
   photos?: { id: number }[];
-  error?: string;
 };
 
 async function signUpload(dealId: number, file: File) {
-  const res = await fetch("/api/uploads/sign", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  return postJson<SignResponse>(
+    "/api/uploads/sign",
+    {
       dealId,
       contentType: file.type,
       originalName: file.name,
       fileSize: file.size,
-    }),
-  });
-  return readJson<SignResponse>(res).then((data) => {
-    if (!res.ok) throw new Error(data.error || "Could not prepare upload.");
-    return data;
-  });
+    },
+    "Could not prepare upload.",
+  );
 }
 
 async function putToSignedUrl(signedUrl: string, file: File) {
@@ -61,14 +55,11 @@ async function registerPhoto(
     isCover?: boolean;
   },
 ) {
-  const res = await fetch(`/api/deals/${dealId}/photos/register`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
-  const data = await readJson<RegisterResponse>(res);
-  if (!res.ok) throw new Error(data.error || "Could not save photo.");
-  return data;
+  return postJson<RegisterResponse>(
+    `/api/deals/${dealId}/photos/register`,
+    input,
+    "Could not save photo.",
+  );
 }
 
 async function prepareFile(file: File): Promise<File> {

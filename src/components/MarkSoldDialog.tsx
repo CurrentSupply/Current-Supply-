@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
 
 type Props = {
@@ -12,34 +12,21 @@ type Props = {
   onConfirm: (payload: { price: number; soldAt: string }) => Promise<void>;
 };
 
-export function MarkSoldDialog({
-  open,
+function MarkSoldDialogForm({
   dealName,
   listPrice,
   cost,
   onClose,
   onConfirm,
-}: Props) {
-  const [price, setPrice] = useState("");
+}: Omit<Props, "open">) {
+  const [price, setPrice] = useState(String(listPrice));
   const [soldAt, setSoldAt] = useState(toInputDate());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (!open) return;
-    setPrice(String(listPrice));
-    setSoldAt(toInputDate());
-    setError("");
-    setBusy(false);
-  }, [open, listPrice]);
-
-  if (!open) return null;
-
   const salePrice = Number(price);
   const profit =
-    !Number.isNaN(salePrice) && cost !== undefined
-      ? salePrice - cost
-      : null;
+    !Number.isNaN(salePrice) && cost !== undefined ? salePrice - cost : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -143,5 +130,15 @@ export function MarkSoldDialog({
         </div>
       </form>
     </div>
+  );
+}
+
+export function MarkSoldDialog({ open, ...props }: Props) {
+  if (!open) return null;
+  return (
+    <MarkSoldDialogForm
+      key={`${props.dealName ?? ""}-${props.listPrice}`}
+      {...props}
+    />
   );
 }

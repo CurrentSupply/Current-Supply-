@@ -5,8 +5,17 @@ import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
+import { PageHeader } from "@/components/PageHeader";
+import { PageEmpty, PageLoading } from "@/components/PageStatus";
 import { PhotoUploader } from "@/components/PhotoUploader";
 import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import {
+  deleteDeal,
+  fetchDeal,
+  markDealInStock,
+  markDealSold,
+  updateDealSoldAt,
+} from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -28,32 +37,38 @@ export default function DealDetailPage() {
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
 
   const load = useCallback(async () => {
-    const res = await fetch(`/api/deals/${params.id}`);
-    if (!res.ok) {
-      setError("Deal not found.");
+    try {
+      const data = await fetchDeal(params.id);
+      setDeal(data);
+      setError("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Deal not found.");
       setDeal(null);
-      return;
     }
-    setDeal(await res.json());
   }, [params.id]);
 
   useEffect(() => {
-    void load();
+    const handle = window.setTimeout(() => {
+      void load();
+    }, 0);
+    return () => window.clearTimeout(handle);
   }, [load]);
 
   if (error) {
     return (
-      <div className="surface rounded-none p-8 text-center">
-        <p>{error}</p>
-        <Link href="/inventory" className="btn btn-secondary mt-4">
-          Back to inventory
-        </Link>
-      </div>
+      <PageEmpty
+        title={error}
+        action={
+          <Link href="/inventory" className="btn btn-secondary">
+            Back to inventory
+          </Link>
+        }
+      />
     );
   }
 
   if (!deal) {
-    return <p className="text-sm text-[var(--muted)]">Loading deal…</p>;
+    return <PageLoading label="Loading deal…" />;
   }
 
   const profit = calcProfit(deal.price, deal.cost);
@@ -66,61 +81,55 @@ export default function DealDetailPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/inventory" className="text-sm text-[var(--muted)] hover:text-[var(--ink)]">
+      <PageHeader
+        title={deal.name}
+        subtitle={`Size ${deal.size}${deal.category ? ` · ${deal.category.name}` : ""} · ${ownerLabel}${deal.platform ? ` · ${deal.platform}` : ""}`}
+        back={
+          <Link
+            href="/inventory"
+            className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
+          >
             ← Inventory
           </Link>
-          <h1 className="page-title mt-2 text-3xl sm:text-4xl">
-            {deal.name}
-          </h1>
-          <p className="mt-1 text-[var(--muted)]">
-            Size {deal.size}
-            {deal.category ? ` · ${deal.category.name}` : ""}
-            {` · ${ownerLabel}`}
-            {deal.platform ? ` · ${deal.platform}` : ""}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {deal.status === "in_stock" ? (
+        }
+        actions={
+          <>
+            {deal.status === "in_stock" ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setMarkSoldOpen(true)}
+              >
+                Mark sold
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={async () => {
+                  await markDealInStock(deal.id);
+                  await load();
+                }}
+              >
+                Mark in stock
+              </button>
+            )}
+            <Link href={`/inventory/${deal.id}/edit`} className="btn btn-secondary">
+              Edit
+            </Link>
+            <Link href={`/overlay?dealId=${deal.id}`} className="btn btn-secondary">
+              Stamp photo
+            </Link>
             <button
               type="button"
-              className="btn btn-primary"
-              onClick={() => setMarkSoldOpen(true)}
+              className="btn btn-danger"
+              onClick={() => setConfirmDelete(true)}
             >
-              Mark sold
+              Delete
             </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={async () => {
-                await fetch(`/api/deals/${deal.id}`, {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ status: "in_stock" }),
-                });
-                await load();
-              }}
-            >
-              Mark in stock
-            </button>
-          )}
-          <Link href={`/inventory/${deal.id}/edit`} className="btn btn-secondary">
-            Edit
-          </Link>
-          <Link href={`/overlay?dealId=${deal.id}`} className="btn btn-secondary">
-            Stamp photo
-          </Link>
-          <button
-            type="button"
-            className="btn btn-danger"
-            onClick={() => setConfirmDelete(true)}
-          >
-            Delete
-          </button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
         <div className="surface overflow-hidden rounded-none">
@@ -208,19 +217,16 @@ export default function DealDetailPage() {
                         const soldAt = e.target.value;
                         if (!soldAt) return;
                         setSoldDateError("");
-                        const res = await fetch(`/api/deals/${deal.id}`, {
-                          method: "PATCH",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ soldAt }),
-                        });
-                        if (!res.ok) {
-                          const data = await res.json();
+                        try {
+                          await updateDealSoldAt(deal.id, soldAt);
+                          await load();
+                        } catch (err) {
                           setSoldDateError(
-                            data.error || "Could not update sold date.",
+                            err instanceof Error
+                              ? err.message
+                              : "Could not update sold date.",
                           );
-                          return;
                         }
-                        await load();
                       }}
                       aria-label="Sold date"
                     />
@@ -254,15 +260,7 @@ export default function DealDetailPage() {
         cost={deal.cost}
         onClose={() => setMarkSoldOpen(false)}
         onConfirm={async ({ price, soldAt }) => {
-          const res = await fetch(`/api/deals/${deal.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "sold", price, soldAt }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || "Could not mark sold.");
-          }
+          await markDealSold(deal.id, { price, soldAt });
           await load();
         }}
       />
@@ -275,7 +273,7 @@ export default function DealDetailPage() {
         danger
         onCancel={() => setConfirmDelete(false)}
         onConfirm={async () => {
-          await fetch(`/api/deals/${deal.id}`, { method: "DELETE" });
+          await deleteDeal(deal.id);
           router.push("/inventory");
         }}
       />

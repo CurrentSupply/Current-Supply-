@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import type { Photo } from "@/db/schema";
 import { photoUrl } from "@/lib/format";
+import { deleteJson, patchJson } from "@/lib/http";
 import { uploadDealPhotos } from "@/lib/uploadCover";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -38,12 +39,11 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
   async function setCover(photoId: number) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/deals/${dealId}/photos`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverPhotoId: photoId }),
-      });
-      if (!res.ok) throw new Error("Could not set cover.");
+      await patchJson(
+        `/api/deals/${dealId}/photos`,
+        { coverPhotoId: photoId },
+        "Could not set cover.",
+      );
       await onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not set cover.");
@@ -62,12 +62,11 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
 
     setBusy(true);
     try {
-      const res = await fetch(`/api/deals/${dealId}/photos`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ order }),
-      });
-      if (!res.ok) throw new Error("Could not reorder photos.");
+      await patchJson(
+        `/api/deals/${dealId}/photos`,
+        { order },
+        "Could not reorder photos.",
+      );
       await onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reorder.");
@@ -80,8 +79,7 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
     if (deleteId === null) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/photos/${deleteId}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Could not delete photo.");
+      await deleteJson(`/api/photos/${deleteId}`, "Could not delete photo.");
       setDeleteId(null);
       await onChange();
     } catch (err) {

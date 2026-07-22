@@ -2,54 +2,28 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { MetricTile } from "@/components/MetricTile";
+import { PageHeader } from "@/components/PageHeader";
+import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import type { DashboardStats } from "@/lib/deals";
 import { formatMoney, photoUrl, profitToneClass } from "@/lib/format";
-
-function StatTile({
-  label,
-  value,
-  hint,
-  valueClassName,
-  hintClassName,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-  valueClassName?: string;
-  hintClassName?: string;
-}) {
-  return (
-    <div className="surface rounded-none p-4">
-      <p className="page-kicker">{label}</p>
-      <p className={`page-title mt-2 text-2xl ${valueClassName ?? ""}`}>
-        {value}
-      </p>
-      {hint ? (
-        <p className={`mt-1 text-xs ${hintClassName ?? "text-[var(--muted)]"}`}>
-          {hint}
-        </p>
-      ) : null}
-    </div>
-  );
-}
+import { getJson } from "@/lib/http";
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    void fetch("/api/stats")
-      .then(async (r) => {
-        if (!r.ok) throw new Error("Could not load analytics.");
-        return r.json();
-      })
+    void getJson<DashboardStats>("/api/stats", "Could not load analytics.")
       .then(setStats)
-      .catch((err) => setError(err.message));
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Could not load analytics."),
+      );
   }, []);
 
-  if (error) return <p className="text-[var(--danger)]">{error}</p>;
+  if (error) return <PageError message={error} />;
   if (!stats) {
-    return <p className="text-sm text-[var(--muted)]">Loading analytics…</p>;
+    return <PageLoading label="Loading analytics…" />;
   }
 
   const empty = stats.inStockCount + stats.soldCount === 0;
@@ -60,62 +34,58 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="page-kicker">Analytics</p>
-        <h1 className="page-title mt-1 text-3xl sm:text-4xl">
-          Inventory pulse
-        </h1>
-        <p className="mt-1 text-[var(--muted)]">
-          What’s available, what’s sold, and where profit is coming from.
-        </p>
-      </div>
+      <PageHeader
+        kicker="Analytics"
+        title="Inventory pulse"
+        subtitle="What’s available, what’s sold, and where profit is coming from."
+      />
 
       {empty ? (
-        <div className="surface rounded-none px-6 py-14 text-center">
-          <h2 className="text-xl font-semibold">No deals yet</h2>
-          <p className="mt-2 text-[var(--muted)]">
-            Add inventory to unlock stock and sales metrics.
-          </p>
-          <Link href="/inventory/new" className="btn btn-primary mt-5">
-            Add deal
-          </Link>
-        </div>
+        <PageEmpty
+          title="No deals yet"
+          description="Add inventory to unlock stock and sales metrics."
+          action={
+            <Link href="/inventory/new" className="btn btn-primary">
+              Add deal
+            </Link>
+          }
+        />
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <StatTile
+            <MetricTile
               label="Available"
               value={String(stats.inStockCount)}
               hint="In stock right now"
             />
-            <StatTile
+            <MetricTile
               label="Sold"
               value={String(stats.soldCount)}
               hint="Closed deals"
             />
-            <StatTile
+            <MetricTile
               label="Inventory cost"
               value={formatMoney(stats.inventoryCost)}
               hint="Cash tied up in stock"
             />
-            <StatTile
+            <MetricTile
               label="List value"
               value={formatMoney(stats.inventoryValue)}
               hint="If everything sold at list"
             />
-            <StatTile
+            <MetricTile
               label="Projected profit"
               value={formatMoney(stats.projectedProfit)}
               valueClassName={profitToneClass(stats.projectedProfit)}
               hint="Open stock at list price"
             />
-            <StatTile
+            <MetricTile
               label="Realized profit"
               value={formatMoney(stats.realizedProfit)}
               valueClassName={profitToneClass(stats.realizedProfit)}
               hint={`${stats.soldCount} sold`}
             />
-            <StatTile
+            <MetricTile
               label="Avg ROI (sold)"
               value={
                 stats.avgRoiSold === null
@@ -128,7 +98,7 @@ export default function DashboardPage() {
                   : profitToneClass(stats.avgRoiSold)
               }
             />
-            <StatTile
+            <MetricTile
               label="Avg days held"
               value={
                 stats.avgDaysHeldSold === null
@@ -136,17 +106,17 @@ export default function DashboardPage() {
                   : `${stats.avgDaysHeldSold.toFixed(0)} days`
               }
             />
-            <StatTile
+            <MetricTile
               label="With box"
               value={String(stats.withBoxCount)}
               hint="Across all deals"
             />
-            <StatTile
+            <MetricTile
               label="With insoles"
               value={String(stats.withInsolesCount)}
               hint="Across all deals"
             />
-            <StatTile
+            <MetricTile
               label="Best category"
               value={stats.bestCategory?.name ?? "—"}
               hint={
@@ -160,7 +130,7 @@ export default function DashboardPage() {
                   : "text-[var(--muted)]"
               }
             />
-            <StatTile
+            <MetricTile
               label="Sell-through"
               value={
                 stats.inStockCount + stats.soldCount === 0

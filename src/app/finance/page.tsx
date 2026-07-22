@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { MetricTile } from "@/components/MetricTile";
+import { PageHeader } from "@/components/PageHeader";
+import { PageError, PageLoading } from "@/components/PageStatus";
 import { FINANCE_CATEGORIES } from "@/db/schema";
 import type { FinanceSummary } from "@/lib/finance";
 import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
+import { deleteJson, getJson, postJson } from "@/lib/http";
 
 export default function FinancePage() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -23,17 +27,21 @@ export default function FinancePage() {
   });
 
   const load = useCallback(async () => {
-    setError("");
-    const res = await fetch("/api/finance");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Could not load finance.");
+    const data = await getJson<FinanceSummary>(
+      "/api/finance",
+      "Could not load finance.",
+    );
     setSummary(data);
+    setError("");
   }, []);
 
   useEffect(() => {
-    void load().catch((err) =>
-      setError(err instanceof Error ? err.message : "Could not load finance."),
-    );
+    const handle = window.setTimeout(() => {
+      void load().catch((err) =>
+        setError(err instanceof Error ? err.message : "Could not load finance."),
+      );
+    }, 0);
+    return () => window.clearTimeout(handle);
   }, [load]);
 
   async function addEntry(e: React.FormEvent) {
@@ -41,16 +49,14 @@ export default function FinancePage() {
     setBusy(true);
     setError("");
     try {
-      const res = await fetch("/api/finance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      await postJson(
+        "/api/finance",
+        {
           ...form,
           amount: Number(form.amount),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not save entry.");
+        },
+        "Could not save entry.",
+      );
       setForm((prev) => ({ ...prev, amount: "", note: "" }));
       await load();
     } catch (err) {
@@ -64,9 +70,10 @@ export default function FinancePage() {
     setSyncBusy(true);
     setSyncMsg("");
     try {
-      const res = await fetch("/api/sheets/sync", { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Sheets sync failed.");
+      const data = await postJson<{
+        configured?: boolean;
+        synced?: number;
+      }>("/api/sheets/sync", {}, "Sheets sync failed.");
       setSyncMsg(
         data.configured
           ? `Synced ${data.synced} deals to Google Sheets.`
@@ -80,33 +87,28 @@ export default function FinancePage() {
   }
 
   if (!summary && !error) {
-    return <p className="text-sm text-[var(--muted)]">Loading finance…</p>;
+    return <PageLoading label="Loading finance…" />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="page-kicker">Finance</p>
-          <h1 className="page-title mt-1 text-3xl sm:text-4xl">
-            Deal money
-          </h1>
-          <p className="mt-1 max-w-2xl text-[var(--muted)]">
-            Sales, purchases, and profit from your inventory — plus optional
-            manual fees. Deals can sync live to Google Sheets.
-          </p>
-        </div>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={syncBusy}
-          onClick={() => void syncSheets()}
-        >
-          {syncBusy ? "Syncing…" : "Sync Google Sheets"}
-        </button>
-      </div>
+      <PageHeader
+        kicker="Finance"
+        title="Deal money"
+        subtitle="Sales, purchases, and profit from your inventory — plus optional manual fees. Deals can sync live to Google Sheets."
+        actions={
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={syncBusy}
+            onClick={() => void syncSheets()}
+          >
+            {syncBusy ? "Syncing…" : "Sync Google Sheets"}
+          </button>
+        }
+      />
 
-      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? <PageError message={error} /> : null}
       {syncMsg ? (
         <p className="text-sm text-[var(--muted)]">{syncMsg}</p>
       ) : null}
@@ -160,46 +162,27 @@ export default function FinancePage() {
       {summary ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="surface rounded-none p-4">
-              <p className="page-kicker">Sales revenue</p>
-              <p className="page-title mt-2 text-2xl">
-                {formatMoney(summary.salesRevenue)}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {summary.soldCount} sold
-              </p>
-            </div>
-            <div className="surface rounded-none p-4">
-              <p className="page-kicker">Deal profit</p>
-              <p
-                className={`page-title mt-2 text-2xl ${profitToneClass(
-                  summary.dealProfit,
-                )}`}
-              >
-                {formatMoney(summary.dealProfit)}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Sales − cost of sold
-              </p>
-            </div>
-            <div className="surface rounded-none p-4">
-              <p className="page-kicker">Purchase spend</p>
-              <p className="page-title mt-2 text-2xl">
-                {formatMoney(summary.purchaseSpend)}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                All deals bought
-              </p>
-            </div>
-            <div className="surface rounded-none p-4">
-              <p className="page-kicker">Inventory cost</p>
-              <p className="page-title mt-2 text-2xl">
-                {formatMoney(summary.inventoryCost)}
-              </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                {summary.inStockCount} still in stock
-              </p>
-            </div>
+            <MetricTile
+              label="Sales revenue"
+              value={formatMoney(summary.salesRevenue)}
+              hint={`${summary.soldCount} sold`}
+            />
+            <MetricTile
+              label="Deal profit"
+              value={formatMoney(summary.dealProfit)}
+              valueClassName={profitToneClass(summary.dealProfit)}
+              hint="Sales − cost of sold"
+            />
+            <MetricTile
+              label="Purchase spend"
+              value={formatMoney(summary.purchaseSpend)}
+              hint="All deals bought"
+            />
+            <MetricTile
+              label="Inventory cost"
+              value={formatMoney(summary.inventoryCost)}
+              hint={`${summary.inStockCount} still in stock`}
+            />
           </div>
 
           <section className="surface rounded-none p-5">
@@ -479,13 +462,7 @@ export default function FinancePage() {
         onCancel={() => setDeleteId(null)}
         onConfirm={async () => {
           if (deleteId === null) return;
-          const res = await fetch(`/api/finance?id=${deleteId}`, {
-            method: "DELETE",
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || "Could not delete.");
-          }
+          await deleteJson(`/api/finance?id=${deleteId}`, "Could not delete.");
           setDeleteId(null);
           await load();
         }}

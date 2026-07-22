@@ -1,8 +1,14 @@
+import { DEAL_PHOTOS_BUCKET, getSupabaseUrl } from "@/lib/supabase";
+
 export function formatMoney(value: number): string {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(value);
+}
+
+export function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 export function calcProfit(price: number, cost: number): number {
@@ -44,9 +50,6 @@ export function photoUrl(filename: string): string {
   if (filename.startsWith("http://") || filename.startsWith("https://")) {
     return filename;
   }
-  const base = (
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
-    "https://onjguvlozsqxkurgqgbl.supabase.co"
-  ).replace(/\/$/, "");
-  return `${base}/storage/v1/object/public/deal-photos/${filename.replace(/^\/+/, "")}`;
+  const base = getSupabaseUrl().replace(/\/$/, "");
+  return `${base}/storage/v1/object/public/${DEAL_PHOTOS_BUCKET}/${filename.replace(/^\/+/, "")}`;
 }

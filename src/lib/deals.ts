@@ -14,7 +14,7 @@ import {
   type Photo,
   type PhotoRow,
 } from "@/db/schema";
-import { calcProfit, daysBetween } from "@/lib/format";
+import { calcProfit, daysBetween, roundMoney } from "@/lib/format";
 
 export type DealFilters = {
   q?: string;
@@ -251,18 +251,6 @@ export async function deleteDeal(id: number): Promise<void> {
   const supabase = getServiceSupabase();
   const { error } = await supabase.from("deals").delete().eq("id", id);
   if (error) throw new Error(error.message);
-}
-
-export async function createCategory(name: string): Promise<Category> {
-  await ensureDb();
-  const supabase = getServiceSupabase();
-  const { data, error } = await supabase
-    .from("categories")
-    .insert({ name })
-    .select("id,name,created_at")
-    .single();
-  if (error) throw new Error(error.message);
-  return mapCategory(data as CategoryRow);
 }
 
 export async function insertPhoto(input: {
@@ -521,6 +509,3 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   };
 }
 
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}

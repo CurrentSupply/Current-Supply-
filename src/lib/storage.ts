@@ -1,7 +1,6 @@
 import {
   DEAL_PHOTOS_BUCKET,
   getServiceSupabase,
-  getSupabaseUrl,
 } from "@/lib/supabase";
 
 function storagePathFromStored(stored: string): string | null {
@@ -67,12 +66,4 @@ export async function readUpload(stored: string): Promise<Buffer | null> {
   } catch {
     return null;
   }
-}
-
-export function mediaUrl(stored: string): string {
-  if (stored.startsWith("http://") || stored.startsWith("https://")) {
-    return stored;
-  }
-  const base = getSupabaseUrl().replace(/\/$/, "");
-  return `${base}/storage/v1/object/public/${DEAL_PHOTOS_BUCKET}/${stored.replace(/^\/+/, "")}`;
 }

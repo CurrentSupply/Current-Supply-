@@ -8,8 +8,12 @@ import {
   type InventoryFilterState,
 } from "@/components/InventoryFilters";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
+import { PageHeader } from "@/components/PageHeader";
+import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import type { Category } from "@/db/schema";
+import { markDealSold } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
+import { getJson } from "@/lib/http";
 
 const defaultFilters: InventoryFilterState = {
   q: "",
@@ -30,7 +34,15 @@ export default function InventoryPage() {
   const [error, setError] = useState("");
   const [soldTarget, setSoldTarget] = useState<DealWithRelations | null>(null);
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    void getJson<Category[]>("/api/categories", "Failed to load categories.")
+      .then(setCategories)
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : "Failed to load categories."),
+      );
+  }, []);
+
+  const loadDeals = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
@@ -44,13 +56,11 @@ export default function InventoryPage() {
       if (filters.purchasedTo) params.set("purchasedTo", filters.purchasedTo);
       params.set("sort", filters.sort);
 
-      const [dealsRes, catsRes] = await Promise.all([
-        fetch(`/api/deals?${params.toString()}`),
-        fetch("/api/categories"),
-      ]);
-      if (!dealsRes.ok || !catsRes.ok) throw new Error("Failed to load inventory.");
-      setDeals(await dealsRes.json());
-      setCategories(await catsRes.json());
+      const rows = await getJson<DealWithRelations[]>(
+        `/api/deals?${params.toString()}`,
+        "Failed to load inventory.",
+      );
+      setDeals(rows);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load inventory.");
     } finally {
@@ -60,27 +70,23 @@ export default function InventoryPage() {
 
   useEffect(() => {
     const handle = setTimeout(() => {
-      void load();
+      void loadDeals();
     }, 200);
     return () => clearTimeout(handle);
-  }, [load]);
+  }, [loadDeals]);
 
   return (
     <div className="min-w-0 space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <p className="page-kicker">Inventory</p>
-          <h1 className="page-title mt-1 text-3xl sm:text-4xl">
-            Your deals
-          </h1>
-          <p className="mt-1 text-[var(--muted)]">
-            Log items, track cost vs price, and mark sales fast.
-          </p>
-        </div>
-        <Link href="/inventory/new" className="btn btn-primary w-full sm:w-auto">
-          Add deal
-        </Link>
-      </div>
+      <PageHeader
+        kicker="Inventory"
+        title="Your deals"
+        subtitle="Log items, track cost vs price, and mark sales fast."
+        actions={
+          <Link href="/inventory/new" className="btn btn-primary w-full sm:w-auto">
+            Add deal
+          </Link>
+        }
+      />
 
       <InventoryFilters
         categories={categories}
@@ -88,20 +94,20 @@ export default function InventoryPage() {
         onChange={setFilters}
       />
 
-      {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+      {error ? <PageError message={error} /> : null}
 
       {loading ? (
-        <p className="text-sm text-[var(--muted)]">Loading deals…</p>
+        <PageLoading label="Loading deals…" />
       ) : deals.length === 0 ? (
-        <div className="surface rounded-none px-6 py-14 text-center">
-          <h2 className="page-title text-2xl">No deals match</h2>
-          <p className="mt-2 text-[var(--muted)]">
-            Add your first item or clear filters to see everything.
-          </p>
-          <Link href="/inventory/new" className="btn btn-primary mt-5">
-            Add deal
-          </Link>
-        </div>
+        <PageEmpty
+          title="No deals match"
+          description="Add your first item or clear filters to see everything."
+          action={
+            <Link href="/inventory/new" className="btn btn-primary">
+              Add deal
+            </Link>
+          }
+        />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {deals.map((deal) => (
@@ -122,16 +128,8 @@ export default function InventoryPage() {
         onClose={() => setSoldTarget(null)}
         onConfirm={async ({ price, soldAt }) => {
           if (!soldTarget) return;
-          const res = await fetch(`/api/deals/${soldTarget.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ status: "sold", price, soldAt }),
-          });
-          if (!res.ok) {
-            const data = await res.json();
-            throw new Error(data.error || "Could not mark sold.");
-          }
-          await load();
+          await markDealSold(soldTarget.id, { price, soldAt });
+          await loadDeals();
         }}
       />
     </div>

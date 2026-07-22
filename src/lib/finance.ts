@@ -8,12 +8,8 @@ import {
   type FinanceKind,
 } from "@/db/schema";
 import { listDeals, type DealWithRelations } from "@/lib/deals";
-import { calcProfit } from "@/lib/format";
+import { calcProfit, roundMoney } from "@/lib/format";
 import { isGoogleSheetsConfigured } from "@/lib/googleSheets";
-
-function roundMoney(value: number): number {
-  return Math.round(value * 100) / 100;
-}
 
 export async function listFinanceEntries(): Promise<FinanceEntry[]> {
   await ensureDb();
