@@ -1,12 +1,15 @@
 import { ensureDb, getServiceSupabase } from "@/db";
 import {
+  DEAL_OWNER_LABELS,
   mapFinanceEntry,
+  parseDealOwner,
   type FinanceEntry,
   type FinanceEntryRow,
   type FinanceKind,
 } from "@/db/schema";
-import { listDeals } from "@/lib/deals";
+import { listDeals, type DealWithRelations } from "@/lib/deals";
 import { calcProfit } from "@/lib/format";
+import { isGoogleSheetsConfigured } from "@/lib/googleSheets";
 
 function roundMoney(value: number): number {
   return Math.round(value * 100) / 100;
@@ -59,78 +62,179 @@ export async function deleteFinanceEntry(id: number): Promise<void> {
   if (error) throw new Error(error.message);
 }
 
-export type FinanceSummary = {
-  cashIn: number;
-  cashOut: number;
-  balance: number;
-  entryCount: number;
-  byMonth: { month: string; in: number; out: number; net: number }[];
-  byCategory: { category: string; in: number; out: number; net: number }[];
-  /** Inventory cost currently tied up (from deals). */
-  inventoryCost: number;
-  /** Realized deal profit (sold deals). */
-  dealProfit: number;
-  entries: FinanceEntry[];
+export type SoldDealRow = {
+  id: number;
+  name: string;
+  size: string;
+  cost: number;
+  price: number;
+  profit: number;
+  owner: string;
+  category: string | null;
+  soldAt: string;
+  purchasedAt: string;
+  platform: string;
 };
+
+export type FinanceActivity = {
+  id: string;
+  date: string;
+  kind: "in" | "out";
+  source: "deal_sale" | "deal_purchase" | "manual";
+  label: string;
+  amount: number;
+  dealId?: number;
+  entryId?: number;
+};
+
+export type FinanceSummary = {
+  /** Sale revenue from sold deals. */
+  salesRevenue: number;
+  /** Cost of goods for sold deals. */
+  soldCost: number;
+  /** Realized profit on sold deals. */
+  dealProfit: number;
+  /** Cost still tied up in open inventory. */
+  inventoryCost: number;
+  /** Money spent acquiring all deals (sold + open). */
+  purchaseSpend: number;
+  /** Manual cash in/out. */
+  manualIn: number;
+  manualOut: number;
+  /** Combined: sales + manual in − purchases − manual out. */
+  netCash: number;
+  soldCount: number;
+  inStockCount: number;
+  soldDeals: SoldDealRow[];
+  activity: FinanceActivity[];
+  byMonth: { month: string; sales: number; profit: number; sold: number }[];
+  entries: FinanceEntry[];
+  sheetsConfigured: boolean;
+};
+
+function toSoldRow(d: DealWithRelations): SoldDealRow | null {
+  if (d.status !== "sold" || !d.soldAt) return null;
+  return {
+    id: d.id,
+    name: d.name,
+    size: d.size,
+    cost: d.cost,
+    price: d.price,
+    profit: calcProfit(d.price, d.cost),
+    owner: DEAL_OWNER_LABELS[parseDealOwner(d.owner)],
+    category: d.category?.name ?? null,
+    soldAt: d.soldAt.slice(0, 10),
+    purchasedAt: d.purchasedAt.slice(0, 10),
+    platform: d.platform,
+  };
+}
 
 export async function getFinanceSummary(): Promise<FinanceSummary> {
   const [entries, deals] = await Promise.all([
-    listFinanceEntries(),
+    listFinanceEntries().catch(() => [] as FinanceEntry[]),
     listDeals({ sort: "newest" }),
   ]);
 
-  let cashIn = 0;
-  let cashOut = 0;
-  const monthMap = new Map<string, { in: number; out: number }>();
-  const catMap = new Map<string, { in: number; out: number }>();
+  const sold = deals.filter((d) => d.status === "sold");
+  const inStock = deals.filter((d) => d.status === "in_stock");
 
+  const soldDeals = sold
+    .map(toSoldRow)
+    .filter((r): r is SoldDealRow => r !== null)
+    .sort((a, b) => b.soldAt.localeCompare(a.soldAt));
+
+  const salesRevenue = sold.reduce((sum, d) => sum + d.price, 0);
+  const soldCost = sold.reduce((sum, d) => sum + d.cost, 0);
+  const dealProfit = salesRevenue - soldCost;
+  const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
+  const purchaseSpend = deals.reduce((sum, d) => sum + d.cost, 0);
+
+  let manualIn = 0;
+  let manualOut = 0;
   for (const entry of entries) {
-    if (entry.kind === "in") cashIn += entry.amount;
-    else cashOut += entry.amount;
-
-    const month = entry.entryDate.slice(0, 7);
-    const monthRow = monthMap.get(month) ?? { in: 0, out: 0 };
-    if (entry.kind === "in") monthRow.in += entry.amount;
-    else monthRow.out += entry.amount;
-    monthMap.set(month, monthRow);
-
-    const catRow = catMap.get(entry.category) ?? { in: 0, out: 0 };
-    if (entry.kind === "in") catRow.in += entry.amount;
-    else catRow.out += entry.amount;
-    catMap.set(entry.category, catRow);
+    if (entry.kind === "in") manualIn += entry.amount;
+    else manualOut += entry.amount;
   }
 
-  const inventoryCost = deals
-    .filter((d) => d.status === "in_stock")
-    .reduce((sum, d) => sum + d.cost, 0);
-  const dealProfit = deals
-    .filter((d) => d.status === "sold")
-    .reduce((sum, d) => sum + calcProfit(d.price, d.cost), 0);
+  const activity: FinanceActivity[] = [];
+
+  for (const d of deals) {
+    activity.push({
+      id: `purchase-${d.id}`,
+      date: d.purchasedAt.slice(0, 10),
+      kind: "out",
+      source: "deal_purchase",
+      label: `Bought ${d.name} (${d.size})`,
+      amount: d.cost,
+      dealId: d.id,
+    });
+  }
+  for (const d of sold) {
+    activity.push({
+      id: `sale-${d.id}`,
+      date: (d.soldAt ?? d.updatedAt).slice(0, 10),
+      kind: "in",
+      source: "deal_sale",
+      label: `Sold ${d.name} (${d.size})`,
+      amount: d.price,
+      dealId: d.id,
+    });
+  }
+  for (const entry of entries) {
+    activity.push({
+      id: `manual-${entry.id}`,
+      date: entry.entryDate.slice(0, 10),
+      kind: entry.kind,
+      source: "manual",
+      label: entry.note
+        ? `${entry.category}: ${entry.note}`
+        : entry.category,
+      amount: entry.amount,
+      entryId: entry.id,
+    });
+  }
+
+  activity.sort((a, b) => {
+    const byDate = b.date.localeCompare(a.date);
+    if (byDate !== 0) return byDate;
+    return a.id.localeCompare(b.id);
+  });
+
+  const monthMap = new Map<string, { sales: number; profit: number; sold: number }>();
+  for (const row of soldDeals) {
+    const month = row.soldAt.slice(0, 7);
+    const current = monthMap.get(month) ?? { sales: 0, profit: 0, sold: 0 };
+    current.sales += row.price;
+    current.profit += row.profit;
+    current.sold += 1;
+    monthMap.set(month, current);
+  }
+
+  const byMonth = [...monthMap.entries()]
+    .map(([month, v]) => ({
+      month,
+      sales: roundMoney(v.sales),
+      profit: roundMoney(v.profit),
+      sold: v.sold,
+    }))
+    .sort((a, b) => a.month.localeCompare(b.month))
+    .slice(-8);
 
   return {
-    cashIn: roundMoney(cashIn),
-    cashOut: roundMoney(cashOut),
-    balance: roundMoney(cashIn - cashOut),
-    entryCount: entries.length,
-    byMonth: [...monthMap.entries()]
-      .map(([month, v]) => ({
-        month,
-        in: roundMoney(v.in),
-        out: roundMoney(v.out),
-        net: roundMoney(v.in - v.out),
-      }))
-      .sort((a, b) => a.month.localeCompare(b.month))
-      .slice(-8),
-    byCategory: [...catMap.entries()]
-      .map(([category, v]) => ({
-        category,
-        in: roundMoney(v.in),
-        out: roundMoney(v.out),
-        net: roundMoney(v.in - v.out),
-      }))
-      .sort((a, b) => Math.abs(b.net) - Math.abs(a.net)),
-    inventoryCost: roundMoney(inventoryCost),
+    salesRevenue: roundMoney(salesRevenue),
+    soldCost: roundMoney(soldCost),
     dealProfit: roundMoney(dealProfit),
+    inventoryCost: roundMoney(inventoryCost),
+    purchaseSpend: roundMoney(purchaseSpend),
+    manualIn: roundMoney(manualIn),
+    manualOut: roundMoney(manualOut),
+    netCash: roundMoney(salesRevenue + manualIn - purchaseSpend - manualOut),
+    soldCount: sold.length,
+    inStockCount: inStock.length,
+    soldDeals,
+    activity: activity.slice(0, 40),
+    byMonth,
     entries,
+    sheetsConfigured: isGoogleSheetsConfigured(),
   };
 }

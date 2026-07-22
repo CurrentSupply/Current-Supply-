@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { FINANCE_CATEGORIES } from "@/db/schema";
@@ -10,12 +11,14 @@ export default function FinancePage() {
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncMsg, setSyncMsg] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [form, setForm] = useState({
     entryDate: toInputDate(),
     kind: "out" as "in" | "out",
     amount: "",
-    category: "Purchase",
+    category: "Fees",
     note: "",
   });
 
@@ -57,47 +60,102 @@ export default function FinancePage() {
     }
   }
 
+  async function syncSheets() {
+    setSyncBusy(true);
+    setSyncMsg("");
+    try {
+      const res = await fetch("/api/sheets/sync", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Sheets sync failed.");
+      setSyncMsg(
+        data.configured
+          ? `Synced ${data.synced} deals to Google Sheets.`
+          : "Google Sheets is not configured yet.",
+      );
+    } catch (err) {
+      setSyncMsg(err instanceof Error ? err.message : "Sheets sync failed.");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   if (!summary && !error) {
     return <p className="text-sm text-[var(--muted)]">Loading finance…</p>;
   }
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="page-kicker">Finance</p>
-        <h1 className="page-title mt-1 text-3xl sm:text-4xl">Cash tracker</h1>
-        <p className="mt-1 text-[var(--muted)]">
-          Log money in and out. Inventory cost and deal profit are shown for
-          context.
-        </p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <p className="page-kicker">Finance</p>
+          <h1 className="page-title mt-1 text-3xl sm:text-4xl">
+            Deal money
+          </h1>
+          <p className="mt-1 max-w-2xl text-[var(--muted)]">
+            Sales, purchases, and profit from your inventory — plus optional
+            manual fees. Deals can sync live to Google Sheets.
+          </p>
+        </div>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          disabled={syncBusy}
+          onClick={() => void syncSheets()}
+        >
+          {syncBusy ? "Syncing…" : "Sync Google Sheets"}
+        </button>
       </div>
 
       {error ? <p className="text-sm text-[var(--danger)]">{error}</p> : null}
+      {syncMsg ? (
+        <p className="text-sm text-[var(--muted)]">{syncMsg}</p>
+      ) : null}
+      {summary && !summary.sheetsConfigured ? (
+        <p className="border border-black bg-[#f3f3f3] p-3 text-sm">
+          Google Sheets sync is optional. Add{" "}
+          <code className="font-mono text-xs">GOOGLE_SHEETS_SPREADSHEET_ID</code>
+          ,{" "}
+          <code className="font-mono text-xs">GOOGLE_SERVICE_ACCOUNT_EMAIL</code>
+          , and{" "}
+          <code className="font-mono text-xs">
+            GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY
+          </code>{" "}
+          on Vercel, share the sheet with the service account, then hit Sync.
+        </p>
+      ) : null}
 
       {summary ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="surface rounded-none p-4">
-              <p className="page-kicker">Balance</p>
+              <p className="page-kicker">Sales revenue</p>
+              <p className="page-title mt-2 text-2xl">
+                {formatMoney(summary.salesRevenue)}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                {summary.soldCount} sold
+              </p>
+            </div>
+            <div className="surface rounded-none p-4">
+              <p className="page-kicker">Deal profit</p>
               <p
                 className={`page-title mt-2 text-2xl ${
-                  summary.balance >= 0 ? "profit-pos" : "profit-neg"
+                  summary.dealProfit >= 0 ? "profit-pos" : "profit-neg"
                 }`}
               >
-                {formatMoney(summary.balance)}
+                {formatMoney(summary.dealProfit)}
               </p>
-              <p className="mt-1 text-xs text-[var(--muted)]">Cash in − cash out</p>
-            </div>
-            <div className="surface rounded-none p-4">
-              <p className="page-kicker">Cash in</p>
-              <p className="page-title mt-2 text-2xl">
-                {formatMoney(summary.cashIn)}
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Sales − cost of sold
               </p>
             </div>
             <div className="surface rounded-none p-4">
-              <p className="page-kicker">Cash out</p>
+              <p className="page-kicker">Purchase spend</p>
               <p className="page-title mt-2 text-2xl">
-                {formatMoney(summary.cashOut)}
+                {formatMoney(summary.purchaseSpend)}
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                All deals bought
               </p>
             </div>
             <div className="surface rounded-none p-4">
@@ -106,9 +164,148 @@ export default function FinancePage() {
                 {formatMoney(summary.inventoryCost)}
               </p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Deal profit realized {formatMoney(summary.dealProfit)}
+                {summary.inStockCount} still in stock
               </p>
             </div>
+          </div>
+
+          <section className="surface rounded-none p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold">Sold deals breakdown</h2>
+              <Link
+                href="/inventory?status=sold"
+                className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4"
+              >
+                View sold
+              </Link>
+            </div>
+            {summary.soldDeals.length === 0 ? (
+              <p className="mt-4 text-sm text-[var(--muted)]">
+                No sales yet. Mark a deal sold and it will show here with cost,
+                sale price, and profit.
+              </p>
+            ) : (
+              <div className="mt-4 overflow-x-auto">
+                <table className="w-full min-w-[640px] text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-black text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
+                      <th className="py-2 pr-3 font-bold">Sold</th>
+                      <th className="py-2 pr-3 font-bold">Item</th>
+                      <th className="py-2 pr-3 font-bold">Cost</th>
+                      <th className="py-2 pr-3 font-bold">Sale</th>
+                      <th className="py-2 pr-3 font-bold">Profit</th>
+                      <th className="py-2 font-bold">Owner</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.soldDeals.map((row) => (
+                      <tr
+                        key={row.id}
+                        className="border-b border-[var(--line)]"
+                      >
+                        <td className="py-3 pr-3 whitespace-nowrap">
+                          {row.soldAt}
+                        </td>
+                        <td className="py-3 pr-3">
+                          <Link
+                            href={`/inventory/${row.id}`}
+                            className="font-medium underline-offset-2 hover:underline"
+                          >
+                            {row.name}
+                          </Link>
+                          <p className="text-[var(--muted)]">
+                            {row.size}
+                            {row.category ? ` · ${row.category}` : ""}
+                            {row.platform ? ` · ${row.platform}` : ""}
+                          </p>
+                        </td>
+                        <td className="py-3 pr-3 whitespace-nowrap">
+                          {formatMoney(row.cost)}
+                        </td>
+                        <td className="py-3 pr-3 whitespace-nowrap">
+                          {formatMoney(row.price)}
+                        </td>
+                        <td
+                          className={`py-3 pr-3 whitespace-nowrap ${
+                            row.profit >= 0 ? "profit-pos" : "profit-neg"
+                          }`}
+                        >
+                          {formatMoney(row.profit)}
+                        </td>
+                        <td className="py-3 whitespace-nowrap">{row.owner}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <div className="grid gap-5 lg:grid-cols-2">
+            <section className="surface rounded-none p-5">
+              <h2 className="text-lg font-semibold">Profit by month</h2>
+              {summary.byMonth.length === 0 ? (
+                <p className="mt-3 text-sm text-[var(--muted)]">No sales yet.</p>
+              ) : (
+                <ul className="mt-3 divide-y divide-[var(--line)] text-sm">
+                  {summary.byMonth.map((row) => (
+                    <li
+                      key={row.month}
+                      className="flex items-center justify-between py-2"
+                    >
+                      <span>
+                        {row.month} · {row.sold} sold
+                      </span>
+                      <span
+                        className={
+                          row.profit >= 0 ? "profit-pos" : "profit-neg"
+                        }
+                      >
+                        {formatMoney(row.profit)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="surface rounded-none p-5">
+              <h2 className="text-lg font-semibold">Recent activity</h2>
+              {summary.activity.length === 0 ? (
+                <p className="mt-3 text-sm text-[var(--muted)]">
+                  Buys and sales will land here automatically.
+                </p>
+              ) : (
+                <ul className="mt-3 divide-y divide-[var(--line)] text-sm">
+                  {summary.activity.slice(0, 12).map((row) => (
+                    <li
+                      key={row.id}
+                      className="flex items-center justify-between gap-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{row.label}</p>
+                        <p className="text-[var(--muted)]">
+                          {row.date} ·{" "}
+                          {row.source === "deal_sale"
+                            ? "Sale"
+                            : row.source === "deal_purchase"
+                              ? "Purchase"
+                              : "Manual"}
+                        </p>
+                      </div>
+                      <span
+                        className={
+                          row.kind === "in" ? "profit-pos" : "profit-neg"
+                        }
+                      >
+                        {row.kind === "in" ? "+" : "−"}
+                        {formatMoney(row.amount)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
 
           <div className="grid gap-5 lg:grid-cols-[0.95fr_1.05fr]">
@@ -116,7 +313,10 @@ export default function FinancePage() {
               onSubmit={(e) => void addEntry(e)}
               className="surface space-y-4 rounded-none p-5"
             >
-              <h2 className="text-lg font-semibold">Add entry</h2>
+              <h2 className="text-lg font-semibold">Manual adjustment</h2>
+              <p className="text-sm text-[var(--muted)]">
+                Fees, shipping, payouts — not tied to a single deal.
+              </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="field">
                   <label htmlFor="entryDate">Date</label>
@@ -184,123 +384,67 @@ export default function FinancePage() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, note: e.target.value }))
                     }
-                    placeholder="Buy trip, eBay fees, payout…"
+                    placeholder="eBay fees, shipping, payout…"
                   />
                 </div>
               </div>
               <button type="submit" className="btn btn-primary" disabled={busy}>
-                {busy ? "Saving…" : "Add entry"}
+                {busy ? "Saving…" : "Add adjustment"}
               </button>
             </form>
 
-            <div className="space-y-5">
-              <section className="surface rounded-none p-5">
-                <h2 className="text-lg font-semibold">By month</h2>
-                {summary.byMonth.length === 0 ? (
-                  <p className="mt-3 text-sm text-[var(--muted)]">
-                    No entries yet.
-                  </p>
-                ) : (
-                  <ul className="mt-3 divide-y divide-[var(--line)] text-sm">
-                    {summary.byMonth.map((row) => (
-                      <li
-                        key={row.month}
-                        className="flex items-center justify-between py-2"
-                      >
-                        <span>{row.month}</span>
+            <section className="surface rounded-none p-5">
+              <h2 className="text-lg font-semibold">Manual ledger</h2>
+              {summary.entries.length === 0 ? (
+                <p className="mt-3 text-sm text-[var(--muted)]">
+                  No manual adjustments yet.
+                </p>
+              ) : (
+                <ul className="mt-4 divide-y divide-[var(--line)]">
+                  {summary.entries.map((entry) => (
+                    <li
+                      key={entry.id}
+                      className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">
+                          {entry.entryDate} · {entry.category}
+                        </p>
+                        <p className="text-[var(--muted)]">
+                          {entry.kind === "in" ? "Cash in" : "Cash out"}
+                          {entry.note ? ` · ${entry.note}` : ""}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
                         <span
                           className={
-                            row.net >= 0 ? "profit-pos" : "profit-neg"
+                            entry.kind === "in" ? "profit-pos" : "profit-neg"
                           }
                         >
-                          {formatMoney(row.net)}
+                          {entry.kind === "in" ? "+" : "−"}
+                          {formatMoney(entry.amount)}
                         </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-
-              <section className="surface rounded-none p-5">
-                <h2 className="text-lg font-semibold">By category</h2>
-                {summary.byCategory.length === 0 ? (
-                  <p className="mt-3 text-sm text-[var(--muted)]">
-                    No entries yet.
-                  </p>
-                ) : (
-                  <ul className="mt-3 divide-y divide-[var(--line)] text-sm">
-                    {summary.byCategory.map((row) => (
-                      <li
-                        key={row.category}
-                        className="flex items-center justify-between py-2"
-                      >
-                        <span>{row.category}</span>
-                        <span
-                          className={
-                            row.net >= 0 ? "profit-pos" : "profit-neg"
-                          }
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => setDeleteId(entry.id)}
                         >
-                          {formatMoney(row.net)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            </div>
+                          Delete
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
           </div>
-
-          <section className="surface rounded-none p-5">
-            <h2 className="text-lg font-semibold">Ledger</h2>
-            {summary.entries.length === 0 ? (
-              <p className="mt-3 text-sm text-[var(--muted)]">
-                Add your first cash in/out entry above.
-              </p>
-            ) : (
-              <ul className="mt-4 divide-y divide-[var(--line)]">
-                {summary.entries.map((entry) => (
-                  <li
-                    key={entry.id}
-                    className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
-                  >
-                    <div>
-                      <p className="font-medium">
-                        {entry.entryDate} · {entry.category}
-                      </p>
-                      <p className="text-[var(--muted)]">
-                        {entry.kind === "in" ? "Cash in" : "Cash out"}
-                        {entry.note ? ` · ${entry.note}` : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className={
-                          entry.kind === "in" ? "profit-pos" : "profit-neg"
-                        }
-                      >
-                        {entry.kind === "in" ? "+" : "−"}
-                        {formatMoney(entry.amount)}
-                      </span>
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => setDeleteId(entry.id)}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
         </>
       ) : null}
 
       <ConfirmDialog
         open={deleteId !== null}
         title="Delete this entry?"
-        message="This removes the cash entry from your ledger."
+        message="This removes the manual cash entry."
         confirmLabel="Delete"
         danger
         onCancel={() => setDeleteId(null)}

@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import { parseDealCondition, parseDealOwner } from "@/db/schema";
 import { deleteDeal, getDeal, updateDeal } from "@/lib/deals";
+import {
+  removeDealFromGoogleSheet,
+  syncDealToGoogleSheet,
+} from "@/lib/googleSheets";
 import { deleteUpload } from "@/lib/storage";
 
 type Params = { params: Promise<{ id: string }> };
@@ -97,6 +101,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const full = await updateDeal(dealId, updates);
+    void syncDealToGoogleSheet(full);
     return NextResponse.json(full);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not update deal.";
@@ -122,6 +127,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     }
 
     await deleteDeal(dealId);
+    void removeDealFromGoogleSheet(dealId);
     return NextResponse.json({ ok: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not delete deal.";

@@ -6,6 +6,7 @@ import {
   listDeals,
   type DealFilters,
 } from "@/lib/deals";
+import { syncDealToGoogleSheet } from "@/lib/googleSheets";
 
 export async function GET(request: Request) {
   try {
@@ -80,6 +81,8 @@ export async function POST(request: Request) {
       notes: String(body.notes ?? ""),
       platform: String(body.platform ?? ""),
     });
+
+    void syncDealToGoogleSheet(full);
 
     return NextResponse.json(full, { status: 201 });
   } catch (err) {
