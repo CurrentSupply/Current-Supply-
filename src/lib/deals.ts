@@ -124,6 +124,10 @@ export async function listDeals(filters: DealFilters = {}): Promise<DealWithRela
 
   const sort = filters.sort ?? "newest";
   return withRelations.sort((a, b) => {
+    // Always show in-stock above sold; apply user sort within each group.
+    if (a.status !== b.status) {
+      return a.status === "in_stock" ? -1 : 1;
+    }
     switch (sort) {
       case "oldest":
         return a.purchasedAt.localeCompare(b.purchasedAt);
