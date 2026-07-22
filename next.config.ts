@@ -20,6 +20,9 @@ const nextConfig: NextConfig = {
     ],
     localPatterns: [
       {
+        pathname: "/current-supply-logo.png",
+      },
+      {
         pathname: "/api/media/**",
       },
       {

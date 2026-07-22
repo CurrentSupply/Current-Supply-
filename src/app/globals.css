@@ -40,9 +40,11 @@ body {
     linear-gradient(180deg, #ffffff 0%, #f7f7f7 100%);
 }
 
-a {
-  color: inherit;
-  text-decoration: none;
+@layer base {
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
 }
 
 button,
@@ -63,6 +65,11 @@ textarea {
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
+}
+
+.nav-tab-active {
+  background: #000000;
+  color: #ffffff;
 }
 
 .badge {
