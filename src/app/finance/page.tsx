@@ -117,8 +117,14 @@ export default function FinancePage() {
           <p className="font-semibold">Set up Google Sheets auto-sync</p>
           <p className="mt-1 text-[var(--muted)]">
             Uses a Google Cloud <strong>service account</strong> (not an OAuth
-            “Web application” client ID/secret). Once configured, new and updated
-            deals sync automatically; use the button above for a full rewrite.
+            “Web application” client ID/secret). Env vars must be set on the{" "}
+            <strong>same Vercel project</strong> that serves this site
+            (for this URL that is usually{" "}
+            <code className="font-mono text-xs">current-supply-3joz</code> under
+            team <code className="font-mono text-xs">currentsupplys-projects</code>
+            — not a different “current-supply” project). Once configured, new and
+            updated deals sync automatically; use the button above for a full
+            rewrite.
           </p>
           <ol className="mt-3 list-decimal space-y-1.5 pl-5">
             <li>
@@ -138,8 +144,11 @@ export default function FinancePage() {
               <strong>Editor</strong>.
             </li>
             <li>
-              On Vercel → Settings → Environment Variables (Production + Preview),
-              set{" "}
+              In Vercel open project{" "}
+              <code className="font-mono text-xs">current-supply-3joz</code>{" "}
+              (team{" "}
+              <code className="font-mono text-xs">currentsupplys-projects</code>
+              ) → Settings → Environment Variables. Set for Production + Preview:{" "}
               <code className="font-mono text-xs">
                 GOOGLE_SHEETS_SPREADSHEET_ID
               </code>{" "}
@@ -153,7 +162,10 @@ export default function FinancePage() {
               </code>{" "}
               (<code className="font-mono text-xs">private_key</code>, keep
               newlines as <code className="font-mono text-xs">\n</code>). Redeploy,
-              then Sync.
+              then Sync. From this repo (logged into that team):{" "}
+              <code className="font-mono text-xs">
+                .\scripts\set-vercel-env-3joz.ps1
+              </code>
             </li>
           </ol>
         </div>

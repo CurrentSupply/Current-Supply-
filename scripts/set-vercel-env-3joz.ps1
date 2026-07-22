@@ -1,4 +1,4 @@
-# Apply Supabase env vars to Vercel project current-supply-3joz (currentsupplys-projects).
+# Apply env vars to Vercel project current-supply-3joz (currentsupplys-projects).
 # Run while logged into the Vercel account that owns that team:
 #   npx vercel login
 #   npx vercel teams switch currentsupplys-projects
@@ -9,7 +9,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $root ".env.local"
 
 if (-not (Test-Path $envFile)) {
-  throw "Missing $envFile — add NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY"
+  throw "Missing $envFile — add Supabase + Google Sheets vars"
 }
 
 $vars = @{}
@@ -22,7 +22,10 @@ Get-Content $envFile | ForEach-Object {
 $required = @(
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_ANON_KEY",
-  "SUPABASE_SERVICE_ROLE_KEY"
+  "SUPABASE_SERVICE_ROLE_KEY",
+  "GOOGLE_SHEETS_SPREADSHEET_ID",
+  "GOOGLE_SERVICE_ACCOUNT_EMAIL",
+  "GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY"
 )
 foreach ($name in $required) {
   if (-not $vars[$name]) { throw "Missing $name in .env.local" }
@@ -58,8 +61,11 @@ Write-Host "Redeploying production ..."
 npx vercel --prod --yes --scope $scope
 if ($LASTEXITCODE -ne 0) { throw "Production deploy failed" }
 
-Write-Host "Verifying https://current-supply-3joz.vercel.app/api/categories ..."
-$res = Invoke-WebRequest -Uri "https://current-supply-3joz.vercel.app/api/categories" -UseBasicParsing
+Write-Host "Verifying https://current-supply-3joz.vercel.app/api/sheets/sync ..."
+$res = Invoke-WebRequest -Uri "https://current-supply-3joz.vercel.app/api/sheets/sync" -UseBasicParsing
 if ($res.StatusCode -ne 200) { throw "Expected 200, got $($res.StatusCode)" }
-if ($res.Content -notmatch '^\s*\[') { throw "Expected JSON array, got: $($res.Content.Substring(0,120))" }
-Write-Host "OK $($res.StatusCode) — categories loaded."
+$json = $res.Content | ConvertFrom-Json
+if (-not $json.configured) {
+  throw "Sheets still reports configured=false after deploy — check env vars in Vercel dashboard."
+}
+Write-Host "OK — Google Sheets configured on 3joz."
