@@ -6,18 +6,19 @@ import { readUpload, saveUpload } from "@/lib/storage";
 import sharp from "sharp";
 
 export async function POST(request: Request) {
-  await ensureDb();
-  const body = await request.json();
-  const dealId = Number(body.dealId);
-  const photoId = body.photoId ? Number(body.photoId) : null;
-  const priceOverride =
-    body.price !== undefined && body.price !== null
-      ? Number(body.price)
-      : null;
-  const sizeOverride =
-    body.size !== undefined && body.size !== null
-      ? String(body.size)
-      : null;
+  try {
+    await ensureDb();
+    const body = await request.json();
+    const dealId = Number(body.dealId);
+    const photoId = body.photoId ? Number(body.photoId) : null;
+    const priceOverride =
+      body.price !== undefined && body.price !== null
+        ? Number(body.price)
+        : null;
+    const sizeOverride =
+      body.size !== undefined && body.size !== null
+        ? String(body.size)
+        : null;
 
   const deal = await getDeal(dealId);
   if (!deal) {
@@ -94,6 +95,10 @@ export async function POST(request: Request) {
     size: sizeText,
     price: priceText,
   });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Could not stamp image.";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }
 
 function escapeXml(value: string): string {

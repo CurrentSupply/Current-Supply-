@@ -1,11 +1,17 @@
-import { and, asc, eq, gte, inArray, like, lte, or, type SQL } from "drizzle-orm";
-import { db, ensureDb } from "@/db";
+import { ensureDb, getServiceSupabase, listCategoryRows } from "@/db";
 import {
-  categories,
-  deals,
-  photos,
+  mapCategory,
+  mapDeal,
+  mapPhoto,
+  parseDealOwner,
+  type Category,
+  type CategoryRow,
+  type Deal,
   type DealOwner,
+  type DealRow,
   type DealStatus,
+  type Photo,
+  type PhotoRow,
 } from "@/db/schema";
 import { calcProfit, daysBetween } from "@/lib/format";
 
@@ -20,76 +26,103 @@ export type DealFilters = {
   sort?: "newest" | "oldest" | "name" | "profit" | "price";
 };
 
-export type DealWithRelations = typeof deals.$inferSelect & {
-  category: typeof categories.$inferSelect | null;
-  photos: (typeof photos.$inferSelect)[];
-  coverPhoto: typeof photos.$inferSelect | null;
+export type DealWithRelations = Deal & {
+  category: Category | null;
+  photos: Photo[];
+  coverPhoto: Photo | null;
 };
 
-function buildWhere(filters: DealFilters = {}): SQL | undefined {
-  const clauses: SQL[] = [];
+function attachRelations(
+  deal: Deal,
+  categoriesById: Map<number, Category>,
+  photosByDeal: Map<number, Photo[]>,
+): DealWithRelations {
+  const photos = (photosByDeal.get(deal.id) ?? []).slice().sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.id - b.id;
+  });
+  return {
+    ...deal,
+    category: deal.categoryId ? categoriesById.get(deal.categoryId) ?? null : null,
+    photos,
+    coverPhoto: photos.find((p) => p.isCover) ?? photos[0] ?? null,
+  };
+}
 
-  if (filters.q?.trim()) {
-    const term = `%${filters.q.trim()}%`;
-    clauses.push(
-      or(like(deals.name, term), like(deals.notes, term), like(deals.condition, term))!,
-    );
-  }
-
-  if (filters.status && filters.status !== "all") {
-    clauses.push(eq(deals.status, filters.status));
-  }
-
-  if (filters.owner && filters.owner !== "all") {
-    clauses.push(eq(deals.owner, filters.owner));
-  }
-
-  if (filters.categoryId && filters.categoryId !== "all") {
-    clauses.push(eq(deals.categoryId, filters.categoryId));
-  }
-
-  if (filters.size?.trim()) {
-    clauses.push(like(deals.size, `%${filters.size.trim()}%`));
-  }
-
-  if (filters.purchasedFrom) {
-    clauses.push(gte(deals.purchasedAt, filters.purchasedFrom));
-  }
-
-  if (filters.purchasedTo) {
-    clauses.push(lte(deals.purchasedAt, filters.purchasedTo));
-  }
-
-  if (clauses.length === 0) return undefined;
-  if (clauses.length === 1) return clauses[0];
-  return and(...clauses);
+export async function listCategories(): Promise<Category[]> {
+  await ensureDb();
+  return listCategoryRows();
 }
 
 export async function listDeals(filters: DealFilters = {}): Promise<DealWithRelations[]> {
   await ensureDb();
-  const where = buildWhere(filters);
+  const supabase = getServiceSupabase();
+
+  let query = supabase.from("deals").select("*");
+
+  if (filters.status && filters.status !== "all") {
+    query = query.eq("status", filters.status);
+  }
+  if (filters.owner && filters.owner !== "all") {
+    query = query.eq("owner", filters.owner);
+  }
+  if (filters.categoryId && filters.categoryId !== "all") {
+    query = query.eq("category_id", filters.categoryId);
+  }
+  if (filters.size?.trim()) {
+    query = query.ilike("size", `%${filters.size.trim()}%`);
+  }
+  if (filters.purchasedFrom) {
+    query = query.gte("purchased_at", filters.purchasedFrom);
+  }
+  if (filters.purchasedTo) {
+    query = query.lte("purchased_at", filters.purchasedTo);
+  }
+  if (filters.q?.trim()) {
+    const term = filters.q.trim();
+    query = query.or(
+      `name.ilike.%${term}%,notes.ilike.%${term}%,condition.ilike.%${term}%`,
+    );
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+
+  const deals = ((data ?? []) as DealRow[]).map(mapDeal);
+  if (deals.length === 0) return [];
+
+  const [{ data: catRows }, { data: photoRows }] = await Promise.all([
+    supabase.from("categories").select("id,name,created_at"),
+    supabase
+      .from("photos")
+      .select("*")
+      .in(
+        "deal_id",
+        deals.map((d) => d.id),
+      ),
+  ]);
+
+  const categoriesById = new Map(
+    ((catRows ?? []) as CategoryRow[]).map((row) => {
+      const cat = mapCategory(row);
+      return [cat.id, cat] as const;
+    }),
+  );
+
+  const photosByDeal = new Map<number, Photo[]>();
+  for (const row of (photoRows ?? []) as PhotoRow[]) {
+    const photo = mapPhoto(row);
+    const list = photosByDeal.get(photo.dealId) ?? [];
+    list.push(photo);
+    photosByDeal.set(photo.dealId, list);
+  }
+
+  const withRelations = deals.map((deal) =>
+    attachRelations(deal, categoriesById, photosByDeal),
+  );
+
   const sort = filters.sort ?? "newest";
-
-  const idRows = where
-    ? await db.select({ id: deals.id }).from(deals).where(where)
-    : await db.select({ id: deals.id }).from(deals);
-
-  if (idRows.length === 0) return [];
-
-  const rows = await db.query.deals.findMany({
-    where: inArray(
-      deals.id,
-      idRows.map((r) => r.id),
-    ),
-    with: {
-      category: true,
-      photos: {
-        orderBy: (p, { asc: a }) => [a(p.sortOrder), a(p.id)],
-      },
-    },
-  });
-
-  const sorted = [...rows].sort((a, b) => {
+  return withRelations.sort((a, b) => {
     switch (sort) {
       case "oldest":
         return a.purchasedAt.localeCompare(b.purchasedAt);
@@ -104,36 +137,210 @@ export async function listDeals(filters: DealFilters = {}): Promise<DealWithRela
         return b.createdAt.localeCompare(a.createdAt);
     }
   });
-
-  return sorted.map((deal) => ({
-    ...deal,
-    coverPhoto: deal.photos.find((p) => p.isCover) ?? deal.photos[0] ?? null,
-  }));
 }
 
 export async function getDeal(id: number): Promise<DealWithRelations | null> {
   await ensureDb();
-  const deal = await db.query.deals.findFirst({
-    where: eq(deals.id, id),
-    with: {
-      category: true,
-      photos: {
-        orderBy: (p, { asc: a }) => [a(p.sortOrder), a(p.id)],
-      },
-    },
-  });
+  const supabase = getServiceSupabase();
 
-  if (!deal) return null;
+  const { data, error } = await supabase
+    .from("deals")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
 
-  return {
-    ...deal,
-    coverPhoto: deal.photos.find((p) => p.isCover) ?? deal.photos[0] ?? null,
-  };
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+
+  const deal = mapDeal(data as DealRow);
+
+  const [{ data: catRow }, { data: photoRows }] = await Promise.all([
+    deal.categoryId
+      ? supabase
+          .from("categories")
+          .select("id,name,created_at")
+          .eq("id", deal.categoryId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    supabase.from("photos").select("*").eq("deal_id", id),
+  ]);
+
+  const categoriesById = new Map<number, Category>();
+  if (catRow) {
+    const cat = mapCategory(catRow as CategoryRow);
+    categoriesById.set(cat.id, cat);
+  }
+
+  const photosByDeal = new Map<number, Photo[]>();
+  photosByDeal.set(
+    id,
+    ((photoRows ?? []) as PhotoRow[]).map(mapPhoto),
+  );
+
+  return attachRelations(deal, categoriesById, photosByDeal);
 }
 
-export async function listCategories() {
+export async function createDeal(input: {
+  name: string;
+  size: string;
+  cost: number;
+  price: number;
+  condition?: string;
+  categoryId?: number | null;
+  status: DealStatus;
+  owner: DealOwner;
+  purchasedAt: string;
+  soldAt?: string | null;
+  notes?: string;
+  platform?: string;
+}): Promise<DealWithRelations> {
   await ensureDb();
-  return db.select().from(categories).orderBy(asc(categories.name));
+  const supabase = getServiceSupabase();
+
+  const { data, error } = await supabase
+    .from("deals")
+    .insert({
+      name: input.name,
+      size: input.size,
+      cost: input.cost,
+      price: input.price,
+      condition: input.condition ?? "",
+      category_id: input.categoryId ?? null,
+      status: input.status,
+      owner: parseDealOwner(input.owner),
+      purchased_at: input.purchasedAt,
+      sold_at: input.soldAt ?? null,
+      notes: input.notes ?? "",
+      platform: input.platform ?? "",
+    })
+    .select("*")
+    .single();
+
+  if (error) throw new Error(error.message);
+  const full = await getDeal((data as DealRow).id);
+  if (!full) throw new Error("Deal created but could not be reloaded.");
+  return full;
+}
+
+export async function updateDeal(
+  id: number,
+  patch: Record<string, unknown>,
+): Promise<DealWithRelations> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+
+  const { error } = await supabase.from("deals").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  const full = await getDeal(id);
+  if (!full) throw new Error("Deal not found after update.");
+  return full;
+}
+
+export async function deleteDeal(id: number): Promise<void> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { error } = await supabase.from("deals").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function createCategory(name: string): Promise<Category> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("categories")
+    .insert({ name })
+    .select("id,name,created_at")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapCategory(data as CategoryRow);
+}
+
+export async function insertPhoto(input: {
+  dealId: number;
+  filename: string;
+  originalName: string;
+  isCover: boolean;
+  sortOrder: number;
+}): Promise<Photo> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("photos")
+    .insert({
+      deal_id: input.dealId,
+      filename: input.filename,
+      original_name: input.originalName,
+      is_cover: input.isCover,
+      sort_order: input.sortOrder,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapPhoto(data as PhotoRow);
+}
+
+export async function listPhotosForDeal(dealId: number): Promise<Photo[]> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("photos")
+    .select("*")
+    .eq("deal_id", dealId)
+    .order("sort_order")
+    .order("id");
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as PhotoRow[]).map(mapPhoto);
+}
+
+export async function getPhoto(id: number): Promise<Photo | null> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("photos")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapPhoto(data as PhotoRow) : null;
+}
+
+export async function deletePhotoRow(id: number): Promise<void> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { error } = await supabase.from("photos").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
+export async function clearCoverFlags(dealId: number): Promise<void> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { error } = await supabase
+    .from("photos")
+    .update({ is_cover: false })
+    .eq("deal_id", dealId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setCoverPhoto(dealId: number, photoId: number): Promise<void> {
+  await clearCoverFlags(dealId);
+  const supabase = getServiceSupabase();
+  const { error } = await supabase
+    .from("photos")
+    .update({ is_cover: true })
+    .eq("id", photoId)
+    .eq("deal_id", dealId);
+  if (error) throw new Error(error.message);
+}
+
+export async function setPhotoSortOrder(photoId: number, sortOrder: number): Promise<void> {
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { error } = await supabase
+    .from("photos")
+    .update({ sort_order: sortOrder })
+    .eq("id", photoId);
+  if (error) throw new Error(error.message);
 }
 
 export type DashboardStats = {
@@ -151,7 +358,6 @@ export type DashboardStats = {
 };
 
 export async function getDashboardStats(): Promise<DashboardStats> {
-  await ensureDb();
   const all = await listDeals({ sort: "newest" });
 
   const inStock = all.filter((d) => d.status === "in_stock");

@@ -1,22 +1,3 @@
-import { relations, sql } from "drizzle-orm";
-import {
-  boolean,
-  doublePrecision,
-  integer,
-  pgTable,
-  serial,
-  text,
-  timestamp,
-} from "drizzle-orm/pg-core";
-
-export const categories = pgTable("categories", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull().unique(),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-    .notNull()
-    .default(sql`now()`),
-});
-
 export const DEAL_OWNERS = ["mizzy", "mac", "other"] as const;
 export type DealOwner = (typeof DEAL_OWNERS)[number];
 
@@ -31,66 +12,112 @@ export function parseDealOwner(value: unknown): DealOwner {
   return "other";
 }
 
-export const deals = pgTable("deals", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
-  size: text("size").notNull(),
-  cost: doublePrecision("cost").notNull(),
-  price: doublePrecision("price").notNull(),
-  condition: text("condition").notNull().default(""),
-  categoryId: integer("category_id").references(() => categories.id),
-  status: text("status", { enum: ["in_stock", "sold"] })
-    .notNull()
-    .default("in_stock"),
-  owner: text("owner", { enum: ["mizzy", "mac", "other"] })
-    .notNull()
-    .default("other"),
-  purchasedAt: text("purchased_at").notNull(),
-  soldAt: text("sold_at"),
-  notes: text("notes").notNull().default(""),
-  platform: text("platform").notNull().default(""),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-    .notNull()
-    .default(sql`now()`),
-  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
-    .notNull()
-    .default(sql`now()`),
-});
-
-export const photos = pgTable("photos", {
-  id: serial("id").primaryKey(),
-  dealId: integer("deal_id")
-    .notNull()
-    .references(() => deals.id, { onDelete: "cascade" }),
-  filename: text("filename").notNull(),
-  originalName: text("original_name").notNull(),
-  isCover: boolean("is_cover").notNull().default(false),
-  sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
-    .notNull()
-    .default(sql`now()`),
-});
-
-export const categoriesRelations = relations(categories, ({ many }) => ({
-  deals: many(deals),
-}));
-
-export const dealsRelations = relations(deals, ({ one, many }) => ({
-  category: one(categories, {
-    fields: [deals.categoryId],
-    references: [categories.id],
-  }),
-  photos: many(photos),
-}));
-
-export const photosRelations = relations(photos, ({ one }) => ({
-  deal: one(deals, {
-    fields: [photos.dealId],
-    references: [deals.id],
-  }),
-}));
-
-export type Category = typeof categories.$inferSelect;
-export type Deal = typeof deals.$inferSelect;
-export type Photo = typeof photos.$inferSelect;
 export type DealStatus = "in_stock" | "sold";
+
+export type Category = {
+  id: number;
+  name: string;
+  createdAt: string;
+};
+
+export type Deal = {
+  id: number;
+  name: string;
+  size: string;
+  cost: number;
+  price: number;
+  condition: string;
+  categoryId: number | null;
+  status: DealStatus;
+  owner: DealOwner;
+  purchasedAt: string;
+  soldAt: string | null;
+  notes: string;
+  platform: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type Photo = {
+  id: number;
+  dealId: number;
+  filename: string;
+  originalName: string;
+  isCover: boolean;
+  sortOrder: number;
+  createdAt: string;
+};
+
+export type CategoryRow = {
+  id: number;
+  name: string;
+  created_at: string;
+};
+
+export type DealRow = {
+  id: number;
+  name: string;
+  size: string;
+  cost: number;
+  price: number;
+  condition: string;
+  category_id: number | null;
+  status: DealStatus;
+  owner: DealOwner;
+  purchased_at: string;
+  sold_at: string | null;
+  notes: string;
+  platform: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PhotoRow = {
+  id: number;
+  deal_id: number;
+  filename: string;
+  original_name: string;
+  is_cover: boolean;
+  sort_order: number;
+  created_at: string;
+};
+
+export function mapCategory(row: CategoryRow): Category {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapPhoto(row: PhotoRow): Photo {
+  return {
+    id: row.id,
+    dealId: row.deal_id,
+    filename: row.filename,
+    originalName: row.original_name,
+    isCover: Boolean(row.is_cover),
+    sortOrder: row.sort_order,
+    createdAt: row.created_at,
+  };
+}
+
+export function mapDeal(row: DealRow): Deal {
+  return {
+    id: row.id,
+    name: row.name,
+    size: row.size,
+    cost: Number(row.cost),
+    price: Number(row.price),
+    condition: row.condition ?? "",
+    categoryId: row.category_id,
+    status: row.status === "sold" ? "sold" : "in_stock",
+    owner: parseDealOwner(row.owner),
+    purchasedAt: row.purchased_at,
+    soldAt: row.sold_at,
+    notes: row.notes ?? "",
+    platform: row.platform ?? "",
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}

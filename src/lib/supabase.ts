@@ -2,16 +2,6 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const DEAL_PHOTOS_BUCKET = "deal-photos";
 
-function requireEnv(name: string): string {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(
-      `Missing ${name}. Set it in .env.local (local) or Vercel env (production).`,
-    );
-  }
-  return value;
-}
-
 export function getSupabaseUrl(): string {
   return (
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
@@ -33,8 +23,4 @@ export function getServiceSupabase(): SupabaseClient {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-export function getDatabaseUrl(): string {
-  return requireEnv("DATABASE_URL");
 }
