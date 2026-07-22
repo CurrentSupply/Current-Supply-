@@ -209,7 +209,9 @@ export default function DealDetailPage() {
 
       <MarkSoldDialog
         open={markSoldOpen}
-        currentPrice={deal.price}
+        dealName={deal.name}
+        listPrice={deal.price}
+        cost={deal.cost}
         onClose={() => setMarkSoldOpen(false)}
         onConfirm={async ({ price, soldAt }) => {
           const res = await fetch(`/api/deals/${deal.id}`, {

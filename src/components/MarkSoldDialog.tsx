@@ -1,34 +1,60 @@
 "use client";
 
-import { useState } from "react";
-import { toInputDate } from "@/lib/format";
+import { useEffect, useState } from "react";
+import { formatMoney, toInputDate } from "@/lib/format";
 
 type Props = {
   open: boolean;
-  currentPrice: number;
+  dealName?: string;
+  listPrice: number;
+  cost?: number;
   onClose: () => void;
   onConfirm: (payload: { price: number; soldAt: string }) => Promise<void>;
 };
 
-export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props) {
-  const [price, setPrice] = useState(String(currentPrice));
+export function MarkSoldDialog({
+  open,
+  dealName,
+  listPrice,
+  cost,
+  onClose,
+  onConfirm,
+}: Props) {
+  const [price, setPrice] = useState("");
   const [soldAt, setSoldAt] = useState(toInputDate());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
+  useEffect(() => {
+    if (!open) return;
+    setPrice(String(listPrice));
+    setSoldAt(toInputDate());
+    setError("");
+    setBusy(false);
+  }, [open, listPrice]);
+
   if (!open) return null;
+
+  const salePrice = Number(price);
+  const profit =
+    !Number.isNaN(salePrice) && cost !== undefined
+      ? salePrice - cost
+      : null;
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const value = Number(price);
-    if (Number.isNaN(value) || value < 0) {
+    if (Number.isNaN(salePrice) || salePrice < 0) {
       setError("Enter a valid sale price.");
+      return;
+    }
+    if (!soldAt) {
+      setError("Sold date is required.");
       return;
     }
     setBusy(true);
     setError("");
     try {
-      await onConfirm({ price: value, soldAt });
+      await onConfirm({ price: salePrice, soldAt });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not mark as sold.");
@@ -38,15 +64,30 @@ export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <form onSubmit={submit} className="surface w-full max-w-md rounded-none border-black p-5">
-        <h2 className="page-title text-xl">Mark as sold</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="surface w-full max-w-md rounded-none border-black p-5"
+      >
+        <h2 className="page-title text-xl">Confirm sale price</h2>
         <p className="mt-1 text-sm text-[var(--muted)]">
-          Confirm the final sale price and date.
+          {dealName ? (
+            <>
+              Selling <span className="font-medium text-[var(--ink)]">{dealName}</span>
+              . Listed at {formatMoney(listPrice)}
+              {cost !== undefined ? ` · cost ${formatMoney(cost)}` : ""}.
+            </>
+          ) : (
+            <>Confirm the final sale price and date.</>
+          )}
         </p>
         <div className="mt-4 grid gap-3">
           <div className="field">
-            <label htmlFor="sold-price">Sale price</label>
+            <label htmlFor="sold-price">Final sale price</label>
             <input
               id="sold-price"
               type="number"
@@ -54,6 +95,7 @@ export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props
               step="0.01"
               value={price}
               onChange={(e) => setPrice(e.target.value)}
+              autoFocus
               required
             />
           </div>
@@ -67,6 +109,14 @@ export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props
               required
             />
           </div>
+          {profit !== null ? (
+            <p className="text-sm text-[var(--muted)]">
+              Profit at this price:{" "}
+              <span className={profit >= 0 ? "profit-pos" : "profit-neg"}>
+                {formatMoney(profit)}
+              </span>
+            </p>
+          ) : null}
         </div>
         {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
         <div className="mt-5 flex justify-end gap-2">
@@ -74,7 +124,7 @@ export function MarkSoldDialog({ open, currentPrice, onClose, onConfirm }: Props
             Cancel
           </button>
           <button type="submit" className="btn btn-primary" disabled={busy}>
-            {busy ? "Saving…" : "Mark sold"}
+            {busy ? "Saving…" : "Confirm sold"}
           </button>
         </div>
       </form>

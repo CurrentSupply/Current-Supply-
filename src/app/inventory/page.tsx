@@ -116,7 +116,9 @@ export default function InventoryPage() {
 
       <MarkSoldDialog
         open={soldTarget !== null}
-        currentPrice={soldTarget?.price ?? 0}
+        dealName={soldTarget?.name}
+        listPrice={soldTarget?.price ?? 0}
+        cost={soldTarget?.cost}
         onClose={() => setSoldTarget(null)}
         onConfirm={async ({ price, soldAt }) => {
           if (!soldTarget) return;
