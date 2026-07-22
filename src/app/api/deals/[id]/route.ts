@@ -28,7 +28,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
   const body = await request.json();
   const updates: Partial<typeof deals.$inferInsert> = {
-    updatedAt: new Date().toISOString().replace("T", " ").slice(0, 19),
+    updatedAt: new Date().toISOString(),
   };
 
   if (body.name !== undefined) updates.name = String(body.name).trim();

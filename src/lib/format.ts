@@ -37,5 +37,9 @@ export function photoUrl(filename: string): string {
   if (filename.startsWith("http://") || filename.startsWith("https://")) {
     return filename;
   }
-  return `/api/media/${encodeURIComponent(filename)}`;
+  const base = (
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    "https://onjguvlozsqxkurgqgbl.supabase.co"
+  ).replace(/\/$/, "");
+  return `${base}/storage/v1/object/public/deal-photos/${filename.replace(/^\/+/, "")}`;
 }

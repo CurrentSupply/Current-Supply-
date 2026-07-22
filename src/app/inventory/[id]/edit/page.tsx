@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DealForm, type DealFormValues } from "@/components/DealForm";
+import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
 import type { Category } from "@/db/schema";
 import type { DealWithRelations } from "@/lib/deals";
+import { uploadDealCover } from "@/lib/uploadCover";
 
 export default function EditDealPage() {
   const params = useParams<{ id: string }>();
@@ -37,7 +38,7 @@ export default function EditDealPage() {
     return <p className="text-sm text-[var(--muted)]">Loading…</p>;
   }
 
-  async function save(values: DealFormValues) {
+  async function save({ values, coverFile }: DealFormSubmitPayload) {
     const res = await fetch(`/api/deals/${params.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -51,8 +52,16 @@ export default function EditDealPage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not save deal.");
+
+    if (coverFile) {
+      await uploadDealCover(Number(params.id), coverFile);
+    }
+
     router.push(`/inventory/${params.id}`);
   }
+
+  const coverFilename =
+    deal.coverPhoto?.filename ?? deal.photos[0]?.filename ?? null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-5">
@@ -70,6 +79,7 @@ export default function EditDealPage() {
       <DealForm
         categories={categories}
         initial={deal}
+        initialCoverFilename={coverFilename}
         submitLabel="Save changes"
         onSubmit={save}
         onCancel={() => router.push(`/inventory/${params.id}`)}

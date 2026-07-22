@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DealForm, type DealFormValues } from "@/components/DealForm";
+import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
 import type { Category } from "@/db/schema";
+import { uploadDealCover } from "@/lib/uploadCover";
 
 export default function NewDealPage() {
   const router = useRouter();
@@ -16,7 +17,7 @@ export default function NewDealPage() {
       .then(setCategories);
   }, []);
 
-  async function createDeal(values: DealFormValues) {
+  async function createDeal({ values, coverFile }: DealFormSubmitPayload) {
     const res = await fetch("/api/deals", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -30,6 +31,11 @@ export default function NewDealPage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Could not create deal.");
+
+    if (coverFile) {
+      await uploadDealCover(data.id, coverFile);
+    }
+
     router.push(`/inventory/${data.id}`);
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEAL_OWNER_LABELS,
   DEAL_OWNERS,
@@ -9,7 +9,7 @@ import {
   type Deal,
   type DealOwner,
 } from "@/db/schema";
-import { toInputDate } from "@/lib/format";
+import { photoUrl, toInputDate } from "@/lib/format";
 
 export type DealFormValues = {
   name: string;
@@ -26,11 +26,18 @@ export type DealFormValues = {
   platform: string;
 };
 
+export type DealFormSubmitPayload = {
+  values: DealFormValues;
+  coverFile: File | null;
+};
+
 type Props = {
   categories: Category[];
   initial?: Partial<Deal>;
+  /** Existing cover URL/path for edit mode preview */
+  initialCoverFilename?: string | null;
   submitLabel: string;
-  onSubmit: (values: DealFormValues) => Promise<void>;
+  onSubmit: (payload: DealFormSubmitPayload) => Promise<void>;
   onCancel?: () => void;
 };
 
@@ -54,6 +61,7 @@ function fromDeal(deal?: Partial<Deal>): DealFormValues {
 export function DealForm({
   categories,
   initial,
+  initialCoverFilename,
   submitLabel,
   onSubmit,
   onCancel,
@@ -61,6 +69,20 @@ export function DealForm({
   const [values, setValues] = useState<DealFormValues>(() => fromDeal(initial));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  const coverPreviewUrl = useMemo(() => {
+    if (coverFile) return URL.createObjectURL(coverFile);
+    if (initialCoverFilename) return photoUrl(initialCoverFilename);
+    return null;
+  }, [coverFile, initialCoverFilename]);
+
+  useEffect(() => {
+    if (!coverFile || !coverPreviewUrl) return;
+    return () => URL.revokeObjectURL(coverPreviewUrl);
+  }, [coverFile, coverPreviewUrl]);
 
   const profitPreview = useMemo(() => {
     const cost = Number(values.cost);
@@ -71,6 +93,23 @@ export function DealForm({
 
   function update<K extends keyof DealFormValues>(key: K, value: DealFormValues[K]) {
     setValues((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function pickCover(file: File | null) {
+    if (!file) {
+      setCoverFile(null);
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      setError("Cover photo must be an image (JPG, PNG, WebP, or GIF).");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      setError("Cover photo must be 8MB or smaller.");
+      return;
+    }
+    setError("");
+    setCoverFile(file);
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -95,7 +134,7 @@ export function DealForm({
     setBusy(true);
     setError("");
     try {
-      await onSubmit(values);
+      await onSubmit({ values, coverFile });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save deal.");
       setBusy(false);
@@ -106,6 +145,80 @@ export function DealForm({
 
   return (
     <form onSubmit={handleSubmit} className="surface rounded-none p-5 sm:p-6">
+      <div className="field mb-5">
+        <label htmlFor="cover-photo">Cover photo</label>
+        <input
+          ref={coverInputRef}
+          id="cover-photo"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          className="hidden"
+          onChange={(e) => {
+            pickCover(e.target.files?.[0] ?? null);
+            e.target.value = "";
+          }}
+        />
+        <div
+          className={`mt-1 overflow-hidden rounded-none border border-dashed transition ${
+            dragging
+              ? "border-black bg-[#f3f3f3]"
+              : "border-[var(--line)] bg-white"
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            pickCover(e.dataTransfer.files?.[0] ?? null);
+          }}
+        >
+          {coverPreviewUrl ? (
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={coverPreviewUrl}
+                alt="Cover preview"
+                className="aspect-[4/3] w-full object-cover"
+              />
+              <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-3">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => coverInputRef.current?.click()}
+                >
+                  Replace photo
+                </button>
+                {coverFile ? (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    onClick={() => setCoverFile(null)}
+                  >
+                    Clear new photo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="flex w-full flex-col items-center gap-2 px-4 py-10 text-center"
+              onClick={() => coverInputRef.current?.click()}
+            >
+              <span className="text-sm font-medium text-[var(--ink)]">
+                Add cover photo
+              </span>
+              <span className="text-sm text-[var(--muted)]">
+                Drag & drop or click to choose. JPG, PNG, WebP, GIF up to 8MB.
+              </span>
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="field sm:col-span-2">
           <label htmlFor="name">Item name</label>

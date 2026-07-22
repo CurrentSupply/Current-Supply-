@@ -1,61 +1,87 @@
-import { createClient, type Client } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
-import fs from "fs";
-import path from "path";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import postgres, { type Sql } from "postgres";
 import * as schema from "./schema";
 import { categories } from "./schema";
+import {
+  DEAL_PHOTOS_BUCKET,
+  getDatabaseUrl,
+  getServiceSupabase,
+} from "@/lib/supabase";
 
-const isVercel = Boolean(process.env.VERCEL);
+type Db = PostgresJsDatabase<typeof schema>;
 
-const dataDir = path.join(process.cwd(), "data");
-const localUploadsDir = path.join(process.cwd(), "public", "uploads");
-const vercelUploadsDir = path.join("/tmp", "uploads");
+let sqlClient: Sql | null = null;
+let dbInstance: Db | null = null;
 
-export const uploadsDir = isVercel ? vercelUploadsDir : localUploadsDir;
-
-function resolveDbUrl(): string {
-  if (process.env.TURSO_DATABASE_URL) {
-    return process.env.TURSO_DATABASE_URL;
+function getSql(): Sql {
+  if (!sqlClient) {
+    sqlClient = postgres(getDatabaseUrl(), {
+      prepare: false,
+      max: 10,
+    });
   }
-  if (isVercel) {
-    return "file:/tmp/reselling.db";
-  }
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  const dbFile = path.join(dataDir, "reselling.db");
-  // libSQL expects a file: URL; normalize Windows paths
-  return `file:${dbFile.replaceAll("\\", "/")}`;
+  return sqlClient;
 }
 
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir, { recursive: true });
+function getDb(): Db {
+  if (!dbInstance) {
+    dbInstance = drizzle(getSql(), { schema });
+  }
+  return dbInstance;
 }
 
-const client: Client = createClient({
-  url: resolveDbUrl(),
-  authToken: process.env.TURSO_AUTH_TOKEN,
+/** Lazy Drizzle client — resolves DATABASE_URL on first use. */
+export const db = new Proxy({} as Db, {
+  get(_target, prop, receiver) {
+    const real = getDb();
+    const value = Reflect.get(real, prop, receiver);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
 });
-
-export const db = drizzle(client, { schema });
 
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
-async function bootstrap() {
-  await client.executeMultiple(`
-    CREATE TABLE IF NOT EXISTS categories (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      name TEXT NOT NULL UNIQUE,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+async function ensureStorageBucket() {
+  try {
+    const supabase = getServiceSupabase();
+    const { data: buckets } = await supabase.storage.listBuckets();
+    const exists = buckets?.some((b) => b.name === DEAL_PHOTOS_BUCKET);
+    if (!exists) {
+      await supabase.storage.createBucket(DEAL_PHOTOS_BUCKET, {
+        public: true,
+        fileSizeLimit: 8 * 1024 * 1024,
+        allowedMimeTypes: [
+          "image/jpeg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ],
+      });
+    }
+  } catch {
+    // Bucket may already exist or keys not set yet; uploads will surface errors.
+  }
+}
 
+async function bootstrap() {
+  const client = getSql();
+
+  await client`
+    CREATE TABLE IF NOT EXISTS categories (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
+
+  await client`
     CREATE TABLE IF NOT EXISTS deals (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       size TEXT NOT NULL,
-      cost REAL NOT NULL,
-      price REAL NOT NULL,
+      cost DOUBLE PRECISION NOT NULL,
+      price DOUBLE PRECISION NOT NULL,
       condition TEXT NOT NULL DEFAULT '',
       category_id INTEGER REFERENCES categories(id),
       status TEXT NOT NULL DEFAULT 'in_stock',
@@ -64,37 +90,28 @@ async function bootstrap() {
       sold_at TEXT,
       notes TEXT NOT NULL DEFAULT '',
       platform TEXT NOT NULL DEFAULT '',
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
 
+  await client`
     CREATE TABLE IF NOT EXISTS photos (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       deal_id INTEGER NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
       filename TEXT NOT NULL,
       original_name TEXT NOT NULL,
-      is_cover INTEGER NOT NULL DEFAULT 0,
+      is_cover BOOLEAN NOT NULL DEFAULT false,
       sort_order INTEGER NOT NULL DEFAULT 0,
-      created_at TEXT NOT NULL DEFAULT (datetime('now'))
-    );
-  `);
+      created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    )
+  `;
 
-  // Existing DBs created before owner was added need a safe column migrate.
-  const dealColumns = await client.execute("PRAGMA table_info(deals)");
-  const hasOwner = dealColumns.rows.some((row) => row.name === "owner");
-  if (!hasOwner) {
-    await client.execute(
-      "ALTER TABLE deals ADD COLUMN owner TEXT NOT NULL DEFAULT 'other'",
-    );
-  }
-
-  const countResult = await client.execute(
-    "SELECT COUNT(*) as c FROM categories",
-  );
-  const count = Number(countResult.rows[0]?.c ?? 0);
+  const countResult = await client`SELECT COUNT(*)::int AS c FROM categories`;
+  const count = Number(countResult[0]?.c ?? 0);
 
   if (count === 0) {
-    await db.insert(categories).values([
+    await getDb().insert(categories).values([
       { name: "Sneakers" },
       { name: "Apparel" },
       { name: "Electronics" },
@@ -102,6 +119,8 @@ async function bootstrap() {
       { name: "Other" },
     ]);
   }
+
+  await ensureStorageBucket();
 }
 
 export async function ensureDb() {

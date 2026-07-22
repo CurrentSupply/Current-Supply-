@@ -1,12 +1,20 @@
 import { relations, sql } from "drizzle-orm";
-import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import {
+  boolean,
+  doublePrecision,
+  integer,
+  pgTable,
+  serial,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 
-export const categories = sqliteTable("categories", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const categories = pgTable("categories", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull().unique(),
-  createdAt: text("created_at")
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .default(sql`now()`),
 });
 
 export const DEAL_OWNERS = ["mizzy", "mac", "other"] as const;
@@ -23,12 +31,12 @@ export function parseDealOwner(value: unknown): DealOwner {
   return "other";
 }
 
-export const deals = sqliteTable("deals", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const deals = pgTable("deals", {
+  id: serial("id").primaryKey(),
   name: text("name").notNull(),
   size: text("size").notNull(),
-  cost: real("cost").notNull(),
-  price: real("price").notNull(),
+  cost: doublePrecision("cost").notNull(),
+  price: doublePrecision("price").notNull(),
   condition: text("condition").notNull().default(""),
   categoryId: integer("category_id").references(() => categories.id),
   status: text("status", { enum: ["in_stock", "sold"] })
@@ -41,26 +49,26 @@ export const deals = sqliteTable("deals", {
   soldAt: text("sold_at"),
   notes: text("notes").notNull().default(""),
   platform: text("platform").notNull().default(""),
-  createdAt: text("created_at")
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
     .notNull()
-    .default(sql`(datetime('now'))`),
-  updatedAt: text("updated_at")
+    .default(sql`now()`),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .default(sql`now()`),
 });
 
-export const photos = sqliteTable("photos", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
+export const photos = pgTable("photos", {
+  id: serial("id").primaryKey(),
   dealId: integer("deal_id")
     .notNull()
     .references(() => deals.id, { onDelete: "cascade" }),
   filename: text("filename").notNull(),
   originalName: text("original_name").notNull(),
-  isCover: integer("is_cover", { mode: "boolean" }).notNull().default(false),
+  isCover: boolean("is_cover").notNull().default(false),
   sortOrder: integer("sort_order").notNull().default(0),
-  createdAt: text("created_at")
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
     .notNull()
-    .default(sql`(datetime('now'))`),
+    .default(sql`now()`),
 });
 
 export const categoriesRelations = relations(categories, ({ many }) => ({

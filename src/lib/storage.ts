@@ -1,45 +1,53 @@
-import { put, del } from "@vercel/blob";
-import fs from "fs";
-import path from "path";
-import { uploadsDir } from "@/db";
+import {
+  DEAL_PHOTOS_BUCKET,
+  getServiceSupabase,
+  getSupabaseUrl,
+} from "@/lib/supabase";
 
-const useBlob = Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+function storagePathFromStored(stored: string): string | null {
+  if (!stored) return null;
+  if (stored.startsWith("http://") || stored.startsWith("https://")) {
+    const marker = `/storage/v1/object/public/${DEAL_PHOTOS_BUCKET}/`;
+    const idx = stored.indexOf(marker);
+    if (idx >= 0) return stored.slice(idx + marker.length);
+    return null;
+  }
+  return stored.replace(/^\/+/, "");
+}
 
 export async function saveUpload(
   filename: string,
   buffer: Buffer,
   contentType: string,
 ): Promise<string> {
-  if (useBlob) {
-    const blob = await put(`uploads/${filename}`, buffer, {
-      access: "public",
+  const supabase = getServiceSupabase();
+  const path = filename.replace(/^\/+/, "");
+
+  const { error } = await supabase.storage
+    .from(DEAL_PHOTOS_BUCKET)
+    .upload(path, buffer, {
       contentType,
-      addRandomSuffix: false,
+      upsert: true,
     });
-    return blob.url;
+
+  if (error) {
+    throw new Error(`Storage upload failed: ${error.message}`);
   }
 
-  if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-  }
-  fs.writeFileSync(path.join(uploadsDir, filename), buffer);
-  return filename;
+  const { data } = supabase.storage.from(DEAL_PHOTOS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
 }
 
 export async function deleteUpload(stored: string): Promise<void> {
-  if (stored.startsWith("http://") || stored.startsWith("https://")) {
-    if (useBlob) {
-      try {
-        await del(stored);
-      } catch {
-        // ignore missing blobs
-      }
-    }
-    return;
-  }
+  const path = storagePathFromStored(stored);
+  if (!path) return;
 
-  const filePath = path.join(uploadsDir, stored);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  try {
+    const supabase = getServiceSupabase();
+    await supabase.storage.from(DEAL_PHOTOS_BUCKET).remove([path]);
+  } catch {
+    // ignore missing objects
+  }
 }
 
 export async function readUpload(stored: string): Promise<Buffer | null> {
@@ -49,14 +57,22 @@ export async function readUpload(stored: string): Promise<Buffer | null> {
     return Buffer.from(await res.arrayBuffer());
   }
 
-  const filePath = path.join(uploadsDir, stored);
-  if (!fs.existsSync(filePath)) return null;
-  return fs.readFileSync(filePath);
+  try {
+    const supabase = getServiceSupabase();
+    const { data, error } = await supabase.storage
+      .from(DEAL_PHOTOS_BUCKET)
+      .download(stored.replace(/^\/+/, ""));
+    if (error || !data) return null;
+    return Buffer.from(await data.arrayBuffer());
+  } catch {
+    return null;
+  }
 }
 
 export function mediaUrl(stored: string): string {
   if (stored.startsWith("http://") || stored.startsWith("https://")) {
     return stored;
   }
-  return `/api/media/${encodeURIComponent(stored)}`;
+  const base = getSupabaseUrl().replace(/\/$/, "");
+  return `${base}/storage/v1/object/public/${DEAL_PHOTOS_BUCKET}/${stored.replace(/^\/+/, "")}`;
 }
