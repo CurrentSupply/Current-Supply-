@@ -2,11 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  DEAL_CONDITION_LABELS,
+  DEAL_CONDITIONS,
   DEAL_OWNER_LABELS,
   DEAL_OWNERS,
+  parseDealCondition,
   parseDealOwner,
   type Category,
   type Deal,
+  type DealCondition,
   type DealOwner,
 } from "@/db/schema";
 import { photoUrl, toInputDate } from "@/lib/format";
@@ -16,7 +20,9 @@ export type DealFormValues = {
   size: string;
   cost: string;
   price: string;
-  condition: string;
+  condition: DealCondition;
+  hasBox: boolean;
+  hasInsoles: boolean;
   categoryId: string;
   status: "in_stock" | "sold";
   owner: DealOwner;
@@ -47,7 +53,9 @@ function fromDeal(deal?: Partial<Deal>): DealFormValues {
     size: deal?.size ?? "",
     cost: deal?.cost !== undefined ? String(deal.cost) : "",
     price: deal?.price !== undefined ? String(deal.price) : "",
-    condition: deal?.condition ?? "",
+    condition: parseDealCondition(deal?.condition),
+    hasBox: Boolean(deal?.hasBox),
+    hasInsoles: Boolean(deal?.hasInsoles),
     categoryId: deal?.categoryId ? String(deal.categoryId) : "",
     status: deal?.status === "sold" ? "sold" : "in_stock",
     owner: parseDealOwner(deal?.owner),
@@ -343,15 +351,45 @@ export function DealForm({
             disabled={values.status !== "sold"}
           />
         </div>
-        <div className="field sm:col-span-2">
-          <label htmlFor="condition">Condition notes</label>
-          <textarea
+        <div className="field">
+          <label htmlFor="condition">Condition</label>
+          <select
             id="condition"
-            rows={2}
             value={values.condition}
-            onChange={(e) => update("condition", e.target.value)}
-            placeholder="DS, VNDS, box condition…"
-          />
+            onChange={(e) =>
+              update("condition", e.target.value as DealCondition)
+            }
+            required
+          >
+            {DEAL_CONDITIONS.map((c) => (
+              <option key={c} value={c}>
+                {DEAL_CONDITION_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="field sm:col-span-2">
+          <span className="mb-2 block text-sm font-medium">Includes</span>
+          <div className="flex flex-wrap gap-5">
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={values.hasBox}
+                onChange={(e) => update("hasBox", e.target.checked)}
+                className="h-4 w-4 accent-black"
+              />
+              Box
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={values.hasInsoles}
+                onChange={(e) => update("hasInsoles", e.target.checked)}
+                className="h-4 w-4 accent-black"
+              />
+              Insoles
+            </label>
+          </div>
         </div>
         <div className="field sm:col-span-2">
           <label htmlFor="notes">Notes</label>

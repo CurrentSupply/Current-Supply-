@@ -47,6 +47,8 @@ export default function EditDealPage() {
         cost: Number(values.cost),
         price: Number(values.price),
         categoryId: values.categoryId ? Number(values.categoryId) : null,
+        hasBox: values.hasBox,
+        hasInsoles: values.hasInsoles,
         soldAt: values.status === "sold" ? values.soldAt : null,
       }),
     });

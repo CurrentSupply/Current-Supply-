@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
-import { parseDealOwner } from "@/db/schema";
+import { parseDealCondition, parseDealOwner } from "@/db/schema";
 import { deleteDeal, getDeal, updateDeal } from "@/lib/deals";
 import { deleteUpload } from "@/lib/storage";
 
@@ -52,7 +52,13 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.size !== undefined) updates.size = String(body.size).trim();
     if (body.cost !== undefined) updates.cost = Number(body.cost);
     if (body.price !== undefined) updates.price = Number(body.price);
-    if (body.condition !== undefined) updates.condition = String(body.condition);
+    if (body.condition !== undefined) {
+      updates.condition = parseDealCondition(body.condition);
+    }
+    if (body.hasBox !== undefined) updates.has_box = Boolean(body.hasBox);
+    if (body.hasInsoles !== undefined) {
+      updates.has_insoles = Boolean(body.hasInsoles);
+    }
     if (body.notes !== undefined) updates.notes = String(body.notes);
     if (body.platform !== undefined) updates.platform = String(body.platform);
     if (body.owner !== undefined) updates.owner = parseDealOwner(body.owner);

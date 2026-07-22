@@ -3,6 +3,7 @@ import {
   mapCategory,
   mapDeal,
   mapPhoto,
+  parseDealCondition,
   parseDealOwner,
   type Category,
   type CategoryRow,
@@ -186,6 +187,8 @@ export async function createDeal(input: {
   cost: number;
   price: number;
   condition?: string;
+  hasBox?: boolean;
+  hasInsoles?: boolean;
   categoryId?: number | null;
   status: DealStatus;
   owner: DealOwner;
@@ -204,7 +207,9 @@ export async function createDeal(input: {
       size: input.size,
       cost: input.cost,
       price: input.price,
-      condition: input.condition ?? "",
+      condition: parseDealCondition(input.condition),
+      has_box: Boolean(input.hasBox),
+      has_insoles: Boolean(input.hasInsoles),
       category_id: input.categoryId ?? null,
       status: input.status,
       owner: parseDealOwner(input.owner),
@@ -347,12 +352,17 @@ export type DashboardStats = {
   inStockCount: number;
   soldCount: number;
   inventoryCost: number;
+  inventoryValue: number;
   projectedProfit: number;
   realizedProfit: number;
   avgRoiSold: number | null;
   avgDaysHeldSold: number | null;
   bestCategory: { name: string; profit: number } | null;
-  byCategory: { name: string; count: number; profit: number }[];
+  byCategory: { name: string; count: number; inStock: number; sold: number; profit: number }[];
+  byOwner: { name: string; count: number; inStock: number; sold: number; profit: number }[];
+  byCondition: { name: string; count: number; inStock: number; sold: number }[];
+  withBoxCount: number;
+  withInsolesCount: number;
   byMonth: { month: string; sold: number; profit: number }[];
   recentlySold: DealWithRelations[];
 };
@@ -364,6 +374,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const sold = all.filter((d) => d.status === "sold");
 
   const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
+  const inventoryValue = inStock.reduce((sum, d) => sum + d.price, 0);
   const projectedProfit = inStock.reduce(
     (sum, d) => sum + calcProfit(d.price, d.cost),
     0,
@@ -385,27 +396,83 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   const avgDaysHeldSold =
     held.length > 0 ? held.reduce((a, b) => a + b, 0) / held.length : null;
 
-  const catMap = new Map<string, { count: number; profit: number }>();
+  const catMap = new Map<
+    string,
+    { count: number; inStock: number; sold: number; profit: number }
+  >();
   for (const d of all) {
     const name = d.category?.name ?? "Uncategorized";
-    const current = catMap.get(name) ?? { count: 0, profit: 0 };
+    const current = catMap.get(name) ?? {
+      count: 0,
+      inStock: 0,
+      sold: 0,
+      profit: 0,
+    };
     current.count += 1;
-    if (d.status === "sold") {
+    if (d.status === "in_stock") current.inStock += 1;
+    else {
+      current.sold += 1;
       current.profit += calcProfit(d.price, d.cost);
     }
     catMap.set(name, current);
   }
 
   const byCategory = [...catMap.entries()]
-    .map(([name, v]) => ({ name, ...v }))
-    .sort((a, b) => b.profit - a.profit);
+    .map(([name, v]) => ({ name, ...v, profit: roundMoney(v.profit) }))
+    .sort((a, b) => b.count - a.count);
 
-  const bestCategory = byCategory.find((c) => c.profit > 0)
-    ? {
-        name: byCategory[0].name,
-        profit: byCategory[0].profit,
-      }
-    : null;
+  const ownerMap = new Map<
+    string,
+    { count: number; inStock: number; sold: number; profit: number }
+  >();
+  for (const d of all) {
+    const name = d.owner === "mizzy" ? "Mizzy" : d.owner === "mac" ? "Mac" : "Other";
+    const current = ownerMap.get(name) ?? {
+      count: 0,
+      inStock: 0,
+      sold: 0,
+      profit: 0,
+    };
+    current.count += 1;
+    if (d.status === "in_stock") current.inStock += 1;
+    else {
+      current.sold += 1;
+      current.profit += calcProfit(d.price, d.cost);
+    }
+    ownerMap.set(name, current);
+  }
+  const byOwner = [...ownerMap.entries()]
+    .map(([name, v]) => ({ name, ...v, profit: roundMoney(v.profit) }))
+    .sort((a, b) => b.count - a.count);
+
+  const conditionMap = new Map<
+    string,
+    { count: number; inStock: number; sold: number }
+  >();
+  for (const d of all) {
+    const name = d.condition;
+    const current = conditionMap.get(name) ?? {
+      count: 0,
+      inStock: 0,
+      sold: 0,
+    };
+    current.count += 1;
+    if (d.status === "in_stock") current.inStock += 1;
+    else current.sold += 1;
+    conditionMap.set(name, current);
+  }
+  const byCondition = [...conditionMap.entries()]
+    .map(([name, v]) => ({ name, ...v }))
+    .sort((a, b) => b.count - a.count);
+
+  const topProfitCategory = [...byCategory].sort((a, b) => b.profit - a.profit)[0];
+  const bestCategory =
+    topProfitCategory && topProfitCategory.profit > 0
+      ? {
+          name: topProfitCategory.name,
+          profit: topProfitCategory.profit,
+        }
+      : null;
 
   const monthMap = new Map<string, { sold: number; profit: number }>();
   for (const d of sold) {
@@ -417,7 +484,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
   }
 
   const byMonth = [...monthMap.entries()]
-    .map(([month, v]) => ({ month, ...v }))
+    .map(([month, v]) => ({
+      month,
+      sold: v.sold,
+      profit: roundMoney(v.profit),
+    }))
     .sort((a, b) => a.month.localeCompare(b.month))
     .slice(-6);
 
@@ -430,21 +501,18 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     inStockCount: inStock.length,
     soldCount: sold.length,
     inventoryCost: roundMoney(inventoryCost),
+    inventoryValue: roundMoney(inventoryValue),
     projectedProfit: roundMoney(projectedProfit),
     realizedProfit: roundMoney(realizedProfit),
     avgRoiSold,
     avgDaysHeldSold,
-    bestCategory: bestCategory
-      ? { name: bestCategory.name, profit: roundMoney(bestCategory.profit) }
-      : null,
-    byCategory: byCategory.map((c) => ({
-      ...c,
-      profit: roundMoney(c.profit),
-    })),
-    byMonth: byMonth.map((m) => ({
-      ...m,
-      profit: roundMoney(m.profit),
-    })),
+    bestCategory,
+    byCategory,
+    byOwner,
+    byCondition,
+    withBoxCount: all.filter((d) => d.hasBox).length,
+    withInsolesCount: all.filter((d) => d.hasInsoles).length,
+    byMonth,
     recentlySold,
   };
 }

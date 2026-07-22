@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PhotoUploader } from "@/components/PhotoUploader";
-import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -148,6 +148,20 @@ export default function DealDetailPage() {
               <dd className="text-lg font-semibold">{ownerLabel}</dd>
             </div>
             <div>
+              <dt className="text-[var(--muted)]">Condition</dt>
+              <dd className="text-lg font-semibold">
+                {DEAL_CONDITION_LABELS[deal.condition]}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)]">Box</dt>
+              <dd className="font-medium">{deal.hasBox ? "Yes" : "No"}</dd>
+            </div>
+            <div>
+              <dt className="text-[var(--muted)]">Insoles</dt>
+              <dd className="font-medium">{deal.hasInsoles ? "Yes" : "No"}</dd>
+            </div>
+            <div>
               <dt className="text-[var(--muted)]">Cost</dt>
               <dd className="text-lg font-semibold">{formatMoney(deal.cost)}</dd>
             </div>
@@ -182,12 +196,6 @@ export default function DealDetailPage() {
               </dd>
             </div>
           </dl>
-          {deal.condition ? (
-            <div className="mt-5">
-              <h3 className="text-sm font-semibold text-[var(--muted)]">Condition</h3>
-              <p className="mt-1 whitespace-pre-wrap">{deal.condition}</p>
-            </div>
-          ) : null}
           {deal.notes ? (
             <div className="mt-4">
               <h3 className="text-sm font-semibold text-[var(--muted)]">Notes</h3>

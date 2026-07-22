@@ -14,7 +14,9 @@ CREATE TABLE IF NOT EXISTS deals (
   size TEXT NOT NULL,
   cost DOUBLE PRECISION NOT NULL,
   price DOUBLE PRECISION NOT NULL,
-  condition TEXT NOT NULL DEFAULT '',
+  condition TEXT NOT NULL DEFAULT 'Used',
+  has_box BOOLEAN NOT NULL DEFAULT false,
+  has_insoles BOOLEAN NOT NULL DEFAULT false,
   category_id INTEGER REFERENCES categories(id),
   status TEXT NOT NULL DEFAULT 'in_stock',
   owner TEXT NOT NULL DEFAULT 'other',
@@ -33,6 +35,17 @@ CREATE TABLE IF NOT EXISTS photos (
   original_name TEXT NOT NULL,
   is_cover BOOLEAN NOT NULL DEFAULT false,
   sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS finance_entries (
+  id SERIAL PRIMARY KEY,
+  entry_date TEXT NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('in', 'out')),
+  amount DOUBLE PRECISION NOT NULL CHECK (amount >= 0),
+  category TEXT NOT NULL DEFAULT 'Other',
+  note TEXT NOT NULL DEFAULT '',
+  deal_id INTEGER REFERENCES deals(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

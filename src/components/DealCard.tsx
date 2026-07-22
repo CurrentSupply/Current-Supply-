@@ -53,7 +53,10 @@ export function DealCard({ deal, onMarkSold }: Props) {
               <p className="mt-1 text-sm text-[var(--muted)]">
                 Size {deal.size}
                 {deal.category ? ` · ${deal.category.name}` : ""}
+                {` · ${deal.condition}`}
                 {` · ${ownerLabel}`}
+                {deal.hasBox ? " · Box" : ""}
+                {deal.hasInsoles ? " · Insoles" : ""}
               </p>
             </div>
             <div className="text-right">

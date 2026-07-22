@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
-import { parseDealOwner } from "@/db/schema";
+import { parseDealCondition, parseDealOwner } from "@/db/schema";
 import {
   createDeal,
   listDeals,
@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     const price = Number(body.price);
     const purchasedAt = String(body.purchasedAt ?? "").slice(0, 10);
     const owner = parseDealOwner(body.owner);
+    const condition = parseDealCondition(body.condition);
 
     if (!name || !size || Number.isNaN(cost) || Number.isNaN(price) || !purchasedAt) {
       return NextResponse.json(
@@ -68,7 +69,9 @@ export async function POST(request: Request) {
       size,
       cost,
       price,
-      condition: String(body.condition ?? ""),
+      condition,
+      hasBox: Boolean(body.hasBox),
+      hasInsoles: Boolean(body.hasInsoles),
       categoryId: body.categoryId ? Number(body.categoryId) : null,
       status,
       owner,
@@ -81,6 +84,14 @@ export async function POST(request: Request) {
     return NextResponse.json(full, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Could not create deal.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    const needsMigration = /has_box|has_insoles|schema cache/i.test(message);
+    return NextResponse.json(
+      {
+        error: needsMigration
+          ? "Database needs an update. Run supabase/migrations/003_condition_box_finance.sql in the Supabase SQL Editor."
+          : message,
+      },
+      { status: 500 },
+    );
   }
 }
