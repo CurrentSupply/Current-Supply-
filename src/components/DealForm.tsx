@@ -103,6 +103,24 @@ export function DealForm({
     setValues((prev) => ({ ...prev, [key]: value }));
   }
 
+  function setStatus(status: "in_stock" | "sold") {
+    setValues((prev) => ({
+      ...prev,
+      status,
+      soldAt:
+        status === "sold" ? prev.soldAt || toInputDate() : "",
+    }));
+  }
+
+  function setSoldAt(soldAt: string) {
+    setValues((prev) => ({
+      ...prev,
+      soldAt,
+      // Picking a sold date marks the deal sold; clearing it returns to in stock.
+      status: soldAt ? "sold" : "in_stock",
+    }));
+  }
+
   function pickCover(file: File | null) {
     if (!file) {
       setCoverFile(null);
@@ -315,7 +333,7 @@ export function DealForm({
             id="status"
             value={values.status}
             onChange={(e) =>
-              update("status", e.target.value as "in_stock" | "sold")
+              setStatus(e.target.value as "in_stock" | "sold")
             }
           >
             <option value="in_stock">In stock</option>
@@ -347,9 +365,13 @@ export function DealForm({
             id="soldAt"
             type="date"
             value={values.soldAt}
-            onChange={(e) => update("soldAt", e.target.value)}
-            disabled={values.status !== "sold"}
+            onChange={(e) => setSoldAt(e.target.value)}
           />
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            {values.status === "sold"
+              ? "Change this anytime for sold items."
+              : "Set a date to mark this item sold."}
+          </p>
         </div>
         <div className="field">
           <label htmlFor="condition">Condition</label>

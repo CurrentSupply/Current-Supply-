@@ -73,15 +73,27 @@ export async function PATCH(request: Request, { params }: Params) {
       const status = body.status === "sold" ? "sold" : "in_stock";
       updates.status = status;
       if (status === "sold") {
-        updates.sold_at = String(
-          body.soldAt ?? existing.soldAt ?? new Date().toISOString(),
-        ).slice(0, 10);
+        const explicit =
+          body.soldAt !== undefined && body.soldAt !== null && body.soldAt !== ""
+            ? String(body.soldAt).slice(0, 10)
+            : null;
+        updates.sold_at =
+          explicit ||
+          (existing.soldAt ? String(existing.soldAt).slice(0, 10) : null) ||
+          new Date().toISOString().slice(0, 10);
         if (body.price !== undefined) updates.price = Number(body.price);
       } else {
         updates.sold_at = null;
       }
     } else if (body.soldAt !== undefined) {
+      // Allow correcting sold date on already-sold deals without re-sending status.
       updates.sold_at = body.soldAt ? String(body.soldAt).slice(0, 10) : null;
+      if (body.soldAt && existing.status !== "sold") {
+        updates.status = "sold";
+      }
+      if (!body.soldAt && existing.status === "sold") {
+        updates.status = "in_stock";
+      }
     }
 
     const full = await updateDeal(dealId, updates);

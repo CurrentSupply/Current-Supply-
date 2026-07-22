@@ -129,6 +129,14 @@ textarea {
   box-shadow: none;
 }
 
+.field input:disabled,
+.field select:disabled,
+.field textarea:disabled {
+  background: #f3f3f3;
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

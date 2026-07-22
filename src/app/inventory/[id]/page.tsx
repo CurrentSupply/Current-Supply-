@@ -21,6 +21,7 @@ export default function DealDetailPage() {
   const router = useRouter();
   const [deal, setDeal] = useState<DealWithRelations | null>(null);
   const [error, setError] = useState("");
+  const [soldDateError, setSoldDateError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
 
@@ -190,9 +191,41 @@ export default function DealDetailPage() {
                 {deal.status === "sold" ? "Sold" : "Days held"}
               </dt>
               <dd className="font-medium">
-                {deal.status === "sold" && deal.soldAt
-                  ? deal.soldAt.slice(0, 10)
-                  : `${held} days`}
+                {deal.status === "sold" ? (
+                  <div>
+                    <input
+                      type="date"
+                      className="mt-0.5 w-full border border-[var(--line)] bg-white px-2 py-1.5 text-base font-medium text-[var(--ink)]"
+                      value={deal.soldAt ? deal.soldAt.slice(0, 10) : ""}
+                      onChange={async (e) => {
+                        const soldAt = e.target.value;
+                        if (!soldAt) return;
+                        setSoldDateError("");
+                        const res = await fetch(`/api/deals/${deal.id}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ soldAt }),
+                        });
+                        if (!res.ok) {
+                          const data = await res.json();
+                          setSoldDateError(
+                            data.error || "Could not update sold date.",
+                          );
+                          return;
+                        }
+                        await load();
+                      }}
+                      aria-label="Sold date"
+                    />
+                    {soldDateError ? (
+                      <p className="mt-1 text-xs text-[var(--danger)]">
+                        {soldDateError}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  `${held} days`
+                )}
               </dd>
             </div>
           </dl>
