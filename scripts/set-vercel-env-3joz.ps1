@@ -9,7 +9,7 @@ $root = Split-Path -Parent $PSScriptRoot
 $envFile = Join-Path $root ".env.local"
 
 if (-not (Test-Path $envFile)) {
-  throw "Missing $envFile — add Supabase + Google Sheets vars"
+  throw "Missing $envFile - add Supabase + Google Sheets vars"
 }
 
 $vars = @{}
@@ -38,19 +38,12 @@ $environments = @("production", "preview", "development")
 Write-Host "Linking $scope/$project ..."
 npx vercel link --yes --scope $scope --project $project
 if ($LASTEXITCODE -ne 0) {
-  throw @"
-Could not link $scope/$project.
-Fix: log into the account that owns currentsupplys-projects, then:
-  npx vercel login
-  npx vercel teams switch currentsupplys-projects
-  npx vercel link --yes --scope currentsupplys-projects --project current-supply-3joz
-"@
+  throw "Could not link $scope/$project. Fix: npx vercel login as the currentsupply account, then retry."
 }
 
 foreach ($name in $required) {
   foreach ($envName in $environments) {
     Write-Host "Setting $name ($envName) ..."
-    # Remove existing value if present so add succeeds non-interactively
     npx vercel env rm $name $envName --yes --scope $scope 2>$null | Out-Null
     $vars[$name] | npx vercel env add $name $envName --scope $scope
     if ($LASTEXITCODE -ne 0) { throw "Failed to add $name for $envName" }
@@ -66,6 +59,6 @@ $res = Invoke-WebRequest -Uri "https://current-supply-3joz.vercel.app/api/sheets
 if ($res.StatusCode -ne 200) { throw "Expected 200, got $($res.StatusCode)" }
 $json = $res.Content | ConvertFrom-Json
 if (-not $json.configured) {
-  throw "Sheets still reports configured=false after deploy — check env vars in Vercel dashboard."
+  throw "Sheets still reports configured=false after deploy - check env vars in Vercel dashboard."
 }
-Write-Host "OK — Google Sheets configured on 3joz."
+Write-Host "OK - Google Sheets configured on 3joz."
