@@ -173,8 +173,8 @@ export function DealForm({
       let payload: { imageBase64?: string; mimeType?: string; imageUrl?: string };
       if (coverFile) {
         const prepared = await compressImage(coverFile, {
-          maxEdge: 1280,
-          quality: 0.8,
+          maxEdge: 1024,
+          quality: 0.72,
         });
         payload = {
           imageBase64: await fileToBase64(prepared),

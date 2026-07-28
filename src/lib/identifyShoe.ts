@@ -1,6 +1,11 @@
 import { jsonError } from "@/lib/apiResponse";
 
-const GEMINI_MODELS = ["gemini-2.0-flash", "gemini-1.5-flash"] as const;
+/** Prefer lighter free-tier models first to reduce 429s. */
+const GEMINI_MODELS = [
+  "gemini-2.0-flash-lite",
+  "gemini-2.0-flash",
+  "gemini-1.5-flash",
+] as const;
 
 type IdentifyResult = {
   name: string;
@@ -43,6 +48,23 @@ function extractJsonObject(text: string): IdentifyResult | null {
   }
 }
 
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function friendlyGeminiError(status: number, message: string): string {
+  if (
+    status === 429 ||
+    /resource.?exhausted|rate.?limit|quota|too many requests/i.test(message)
+  ) {
+    return "Gemini free tier is rate-limited right now. Wait about a minute and try Identify again.";
+  }
+  if (status === 403 || /api key|permission|blocked/i.test(message)) {
+    return "Gemini rejected the API key. Check GEMINI_API_KEY in Vercel or create a new key in Google AI Studio.";
+  }
+  return message || "Could not identify shoe.";
+}
+
 export async function identifyShoeFromImage(input: {
   base64: string;
   mimeType: string;
@@ -67,72 +89,96 @@ Rules:
 - Do not invent SKUs or prices`;
 
   let lastError = "Could not identify shoe.";
+  let lastStatus = 502;
 
   for (const model of GEMINI_MODELS) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`;
 
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              {
-                inline_data: {
-                  mime_type: mimeType,
-                  data: base64,
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: prompt },
+                {
+                  inline_data: {
+                    mime_type: mimeType,
+                    data: base64,
+                  },
                 },
-              },
-            ],
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 256,
           },
-        ],
-        generationConfig: {
-          temperature: 0.2,
-          maxOutputTokens: 256,
-        },
-      }),
-    });
-
-    const data = (await res.json()) as {
-      error?: { message?: string; status?: string };
-      candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
-      }>;
-    };
-
-    if (!res.ok) {
-      lastError = data.error?.message || lastError;
-      // Try next model if this one is missing / not enabled.
-      if (res.status === 404 || /not found|not supported/i.test(lastError)) {
-        continue;
-      }
-      throw Object.assign(new Error(lastError), {
-        status: res.status >= 400 && res.status < 600 ? res.status : 502,
+        }),
       });
+
+      const data = (await res.json()) as {
+        error?: { message?: string; status?: string };
+        candidates?: Array<{
+          content?: { parts?: Array<{ text?: string }> };
+        }>;
+      };
+
+      if (!res.ok) {
+        lastStatus = res.status;
+        lastError = data.error?.message || lastError;
+
+        if (res.status === 404 || /not found|not supported/i.test(lastError)) {
+          break; // next model
+        }
+
+        if (
+          (res.status === 429 ||
+            /resource.?exhausted|rate.?limit|quota/i.test(lastError)) &&
+          attempt === 0
+        ) {
+          await sleep(1500);
+          continue; // retry same model once
+        }
+
+        if (
+          res.status === 429 ||
+          /resource.?exhausted|rate.?limit|quota/i.test(lastError)
+        ) {
+          // Try next lighter/heavier model instead of failing immediately.
+          break;
+        }
+
+        throw Object.assign(new Error(friendlyGeminiError(res.status, lastError)), {
+          status: res.status >= 400 && res.status < 600 ? res.status : 502,
+        });
+      }
+
+      const text =
+        data.candidates?.[0]?.content?.parts
+          ?.map((p) => p.text ?? "")
+          .join("\n")
+          .trim() ?? "";
+
+      const parsed = extractJsonObject(text);
+      if (!parsed?.name) {
+        throw Object.assign(
+          new Error(
+            "Could not recognize a shoe in that photo. Try a clearer side shot.",
+          ),
+          { status: 422 },
+        );
+      }
+
+      return parsed;
     }
-
-    const text =
-      data.candidates?.[0]?.content?.parts
-        ?.map((p) => p.text ?? "")
-        .join("\n")
-        .trim() ?? "";
-
-    const parsed = extractJsonObject(text);
-    if (!parsed?.name) {
-      throw Object.assign(
-        new Error(
-          "Could not recognize a shoe in that photo. Try a clearer side shot.",
-        ),
-        { status: 422 },
-      );
-    }
-
-    return parsed;
   }
 
-  throw Object.assign(new Error(lastError), { status: 502 });
+  throw Object.assign(new Error(friendlyGeminiError(lastStatus, lastError)), {
+    status: lastStatus === 429 ? 429 : 502,
+  });
 }
 
 export function identifyConfigErrorResponse() {
