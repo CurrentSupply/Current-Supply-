@@ -20,7 +20,9 @@ import {
   profitToneClass,
   toInputDate,
 } from "@/lib/format";
+import { postJson } from "@/lib/http";
 import { ALLOWED_IMAGE_TYPES, MAX_PHOTO_BYTES } from "@/lib/photoLimits";
+import { compressImage } from "@/lib/compressImage";
 
 export type DealFormValues = {
   name: string;
@@ -86,6 +88,8 @@ export function DealForm({
   const [busy, setBusy] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [identifyBusy, setIdentifyBusy] = useState(false);
+  const [identifyHint, setIdentifyHint] = useState("");
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const coverPreviewUrl = useMemo(() => {
@@ -142,7 +146,63 @@ export function DealForm({
       return;
     }
     setError("");
+    setIdentifyHint("");
     setCoverFile(file);
+  }
+
+  async function fileToBase64(file: File): Promise<string> {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    return btoa(binary);
+  }
+
+  async function identifyShoe() {
+    if (!coverFile && !initialCoverFilename) {
+      setError("Add a cover photo first, then identify.");
+      return;
+    }
+
+    setIdentifyBusy(true);
+    setError("");
+    setIdentifyHint("");
+    try {
+      let payload: { imageBase64?: string; mimeType?: string; imageUrl?: string };
+      if (coverFile) {
+        const prepared = await compressImage(coverFile, {
+          maxEdge: 1280,
+          quality: 0.8,
+        });
+        payload = {
+          imageBase64: await fileToBase64(prepared),
+          mimeType: prepared.type || "image/jpeg",
+        };
+      } else {
+        payload = { imageUrl: photoUrl(initialCoverFilename!) };
+      }
+
+      const result = await postJson<{
+        name: string;
+        confidence: "high" | "medium" | "low";
+        notes?: string;
+      }>("/api/identify-shoe", payload, "Could not identify shoe.");
+
+      update("name", result.name);
+      setIdentifyHint(
+        result.confidence === "high"
+          ? "Name filled from photo — double-check before saving."
+          : `Guessed (${result.confidence} confidence)${
+              result.notes ? `: ${result.notes}` : ""
+            }. Edit if needed.`,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not identify shoe.");
+    } finally {
+      setIdentifyBusy(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -228,6 +288,14 @@ export function DealForm({
                 >
                   Replace photo
                 </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={identifyBusy || busy}
+                  onClick={() => void identifyShoe()}
+                >
+                  {identifyBusy ? "Identifying…" : "Identify shoe"}
+                </button>
                 {coverFile ? (
                   <button
                     type="button"
@@ -266,6 +334,14 @@ export function DealForm({
             placeholder="Jordan 1 Retro High OG"
             required
           />
+          {identifyHint ? (
+            <p className="text-xs text-[var(--muted)]">{identifyHint}</p>
+          ) : (
+            <p className="text-xs text-[var(--muted)]">
+              Tip: add a cover photo, then use Identify shoe to autofill the
+              name.
+            </p>
+          )}
         </div>
         <div className="field">
           <label htmlFor="size">Size</label>
