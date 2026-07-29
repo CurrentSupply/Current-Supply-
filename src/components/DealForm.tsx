@@ -115,6 +115,10 @@ export function DealForm({
     return () => URL.revokeObjectURL(coverPreviewUrl);
   }, [coverFile, coverPreviewUrl]);
 
+  const [brokenPreviewUrl, setBrokenPreviewUrl] = useState<string | null>(null);
+  const previewBroken =
+    Boolean(coverPreviewUrl) && brokenPreviewUrl === coverPreviewUrl;
+
   const profitPreview = useMemo(() => {
     const cost = Number(values.cost);
     const price = Number(values.price);
@@ -173,22 +177,18 @@ export function DealForm({
     setPhotoHint("");
     try {
       const result = await findShoeImage(name);
-      const ext =
-        result.mimeType === "image/png"
-          ? "png"
-          : result.mimeType === "image/webp"
-            ? "webp"
-            : result.mimeType === "image/gif"
-              ? "gif"
-              : "jpg";
       const file = base64ToFile(
         result.imageBase64,
-        result.mimeType,
-        `${name.slice(0, 60)}.${ext}`,
+        result.mimeType || "image/jpeg",
+        `${name.slice(0, 60).replace(/[^\w.-]+/g, "_") || "cover"}.jpg`,
       );
+      if (file.size < 1000) {
+        throw new Error("Found photo was empty. Try again.");
+      }
       setCoverFile(file);
+      setBrokenPreviewUrl(null);
       setPhotoHint(
-        "Photo found from the title — double-check it’s the right shoe before saving.",
+        "Photo found from the title — double-check it’s the right shoe, then save.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not find a photo.");
@@ -264,13 +264,16 @@ export function DealForm({
             pickCover(e.dataTransfer.files?.[0] ?? null);
           }}
         >
-          {coverPreviewUrl ? (
+          {coverPreviewUrl && !previewBroken ? (
             <div className="relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={coverPreviewUrl}
                 alt="Cover preview"
                 className="aspect-[4/3] w-full object-cover"
+                onError={() => {
+                  if (coverPreviewUrl) setBrokenPreviewUrl(coverPreviewUrl);
+                }}
               />
               <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-3">
                 <button
@@ -295,6 +298,7 @@ export function DealForm({
                     onClick={() => {
                       setCoverFile(null);
                       setPhotoHint("");
+                      setBrokenPreviewUrl(null);
                     }}
                   >
                     Clear new photo
@@ -304,6 +308,12 @@ export function DealForm({
             </div>
           ) : (
             <div className="px-4 py-10 text-center">
+              {previewBroken ? (
+                <p className="mb-4 text-sm text-[var(--danger)]">
+                  Current cover failed to load. Upload a photo or find one from
+                  the name.
+                </p>
+              ) : null}
               <button
                 type="button"
                 className="mx-auto flex w-full flex-col items-center gap-2"
@@ -345,8 +355,8 @@ export function DealForm({
             required
           />
           <p className="text-xs text-[var(--muted)]">
-            Tip: type the product name, then use Find photo from name if you
-            don&apos;t have a picture.
+            Tip: use a clear product name (brand, model, colorway), then Find
+            photo from name for a cover.
           </p>
         </div>
         <div className="field">

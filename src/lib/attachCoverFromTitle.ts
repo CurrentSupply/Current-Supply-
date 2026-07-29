@@ -21,15 +21,6 @@ export async function attachCoverPhotoFromTitle(
   }
 
   const existing = await listPhotosForDeal(dealId);
-  if (existing.length > 0) {
-    throw Object.assign(
-      new Error(
-        "This deal already has photos. Remove them first, or upload a replacement.",
-      ),
-      { status: 409 },
-    );
-  }
-
   const title = (name ?? deal.name).trim();
   if (!title) {
     throw Object.assign(new Error("Deal needs a name before finding a photo."), {
@@ -42,12 +33,13 @@ export async function attachCoverPhotoFromTitle(
   const path = `${dealId}-${randomUUID()}${ext}`;
   const publicUrl = await saveUpload(path, found.buffer, found.mimeType);
 
+  const maxOrder = existing.reduce((max, p) => Math.max(max, p.sortOrder), -1);
   const row = await insertPhoto({
     dealId,
     filename: publicUrl,
     originalName: `${title.slice(0, 80)}.jpg`,
     isCover: true,
-    sortOrder: 0,
+    sortOrder: maxOrder + 1,
   });
   await setCoverPhoto(dealId, row.id);
 

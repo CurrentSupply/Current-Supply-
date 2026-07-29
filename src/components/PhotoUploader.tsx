@@ -113,16 +113,14 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Photos</h2>
         <div className="flex flex-wrap gap-2">
-          {photos.length === 0 ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={busy || !dealName.trim()}
-              onClick={() => void findFromTitle()}
-            >
-              {busy ? "Finding…" : "Find from title"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy || !dealName.trim()}
+            onClick={() => void findFromTitle()}
+          >
+            {busy ? "Finding…" : "Find from title"}
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
