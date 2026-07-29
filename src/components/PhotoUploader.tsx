@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { Photo } from "@/db/schema";
+import { attachCoverFromTitle } from "@/lib/dealClient";
 import { photoUrl } from "@/lib/format";
 import { deleteJson, patchJson } from "@/lib/http";
 import { uploadDealPhotos } from "@/lib/uploadCover";
@@ -9,11 +10,12 @@ import { ConfirmDialog } from "@/components/ConfirmDialog";
 
 type Props = {
   dealId: number;
+  dealName: string;
   photos: Photo[];
   onChange: () => Promise<void> | void;
 };
 
-export function PhotoUploader({ dealId, photos, onChange }: Props) {
+export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -31,6 +33,23 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
       await onChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function findFromTitle() {
+    if (!dealName.trim()) {
+      setError("This deal needs a name before finding a photo.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await attachCoverFromTitle(dealId);
+      await onChange();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not find a photo.");
     } finally {
       setBusy(false);
     }
@@ -91,16 +110,28 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
 
   return (
     <section className="surface rounded-none p-5">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Photos</h2>
-        <button
-          type="button"
-          className="btn btn-secondary"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
-          Add photos
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {photos.length === 0 ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={busy || !dealName.trim()}
+              onClick={() => void findFromTitle()}
+            >
+              {busy ? "Finding…" : "Find from title"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={busy}
+            onClick={() => inputRef.current?.click()}
+          >
+            Add photos
+          </button>
+        </div>
       </div>
 
       <input
@@ -133,7 +164,8 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
         }}
       >
         <p className="text-sm text-[var(--muted)]">
-          Drag & drop images here, or use Add photos. JPG, PNG, WebP, GIF up to 8MB.
+          Drag & drop images here, or use Add photos. No photo? Find one from
+          the deal title. JPG, PNG, WebP, GIF up to 8MB.
         </p>
       </div>
 
@@ -144,7 +176,10 @@ export function PhotoUploader({ dealId, photos, onChange }: Props) {
       ) : (
         <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {photos.map((photo, index) => (
-            <li key={photo.id} className="overflow-hidden rounded-none border border-[var(--line)] bg-white">
+            <li
+              key={photo.id}
+              className="overflow-hidden rounded-none border border-[var(--line)] bg-white"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={photoUrl(photo.filename)}

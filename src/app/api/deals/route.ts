@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
-import { parseDealCondition, parseDealOwner } from "@/db/schema";
 import { jsonCatch, jsonError } from "@/lib/apiResponse";
+import { parseDealCreateBody } from "@/lib/dealPayload";
 import {
   createDeal,
   listDeals,
@@ -43,48 +43,12 @@ export async function POST(request: Request) {
   try {
     await ensureDb();
     const body = await request.json();
-
-    const name = String(body.name ?? "").trim();
-    const size = String(body.size ?? "").trim();
-    const cost = Number(body.cost);
-    const price = Number(body.price);
-    const purchasedAt = String(body.purchasedAt ?? "").slice(0, 10);
-    const owner = parseDealOwner(body.owner);
-    const condition = parseDealCondition(body.condition);
-    const categoryId = Number(body.categoryId);
-
-    if (!name || !size || !Number.isFinite(cost) || !Number.isFinite(price) || !purchasedAt) {
-      return jsonError(
-        "Name, size, cost, price, and purchase date are required.",
-        400,
-      );
-    }
-    if (!Number.isFinite(categoryId) || categoryId <= 0) {
-      return jsonError("Category is required.", 400);
+    const parsed = parseDealCreateBody(body);
+    if (!parsed.ok) {
+      return jsonError(parsed.error, 400);
     }
 
-    const status = body.status === "sold" ? "sold" : "in_stock";
-    const soldAt =
-      status === "sold"
-        ? String(body.soldAt ?? new Date().toISOString()).slice(0, 10)
-        : null;
-
-    const full = await createDeal({
-      name,
-      size,
-      cost,
-      price,
-      condition,
-      hasBox: Boolean(body.hasBox),
-      hasInsoles: Boolean(body.hasInsoles),
-      categoryId,
-      status,
-      owner,
-      purchasedAt,
-      soldAt,
-      notes: String(body.notes ?? ""),
-      platform: String(body.platform ?? ""),
-    });
+    const full = await createDeal(parsed.data);
 
     void syncDealToGoogleSheet(full);
 

@@ -3,15 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
+import { BulkDealTable } from "@/components/BulkDealTable";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
 import type { Category } from "@/db/schema";
-import { attachCoverFromTitle, createDeal } from "@/lib/dealClient";
 import { getJson } from "@/lib/http";
-import { uploadDealCover } from "@/lib/uploadCover";
 
-export default function NewDealPage() {
+export default function BulkDealsPage() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loadingCats, setLoadingCats] = useState(true);
@@ -28,29 +26,12 @@ export default function NewDealPage() {
       .finally(() => setLoadingCats(false));
   }, []);
 
-  async function onCreate({ values, coverFile }: DealFormSubmitPayload) {
-    const data = await createDeal(values);
-    if (!data.id) throw new Error("Deal saved but no id was returned.");
-
-    if (coverFile) {
-      await uploadDealCover(data.id, coverFile);
-    } else if (values.name.trim()) {
-      // No upload — try to populate a cover from the title.
-      try {
-        await attachCoverFromTitle(data.id);
-      } catch {
-        // Photo lookup is best-effort; deal is already saved.
-      }
-    }
-
-    router.push(`/inventory/${data.id}`);
-  }
-
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="min-w-0 space-y-5">
       <PageHeader
         kicker="Inventory"
-        title="Add deal"
+        title="Add many deals"
+        subtitle="Spreadsheet-style entry for in-stock items. Photos can be added later on each deal."
         back={
           <Link
             href="/inventory"
@@ -59,15 +40,19 @@ export default function NewDealPage() {
             ← Back to inventory
           </Link>
         }
+        actions={
+          <Link href="/inventory/new" className="btn btn-secondary w-full sm:w-auto">
+            Add one deal
+          </Link>
+        }
       />
       {loadError ? <PageError message={loadError} /> : null}
       {loadingCats ? (
         <PageLoading label="Loading form…" />
       ) : (
-        <DealForm
+        <BulkDealTable
           categories={categories}
-          submitLabel="Save deal"
-          onSubmit={onCreate}
+          onSuccess={() => router.push("/inventory")}
           onCancel={() => router.push("/inventory")}
         />
       )}

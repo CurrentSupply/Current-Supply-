@@ -46,6 +46,19 @@ export function createDeal(values: DealFormValues) {
   );
 }
 
+export type BulkCreateDealsResult = {
+  created: DealWithRelations[];
+  failed?: { index: number; error: string }[];
+};
+
+export function createDealsBulk(rows: SerializedDealPayload[]) {
+  return postJson<BulkCreateDealsResult>(
+    "/api/deals/bulk",
+    { deals: rows },
+    "Could not create deals.",
+  );
+}
+
 export function updateDeal(id: number | string, values: DealFormValues) {
   return patchJson<DealWithRelations>(
     `/api/deals/${id}`,
@@ -87,4 +100,26 @@ export function fetchDeal(id: number | string) {
 
 export function deleteDeal(id: number | string) {
   return deleteJson(`/api/deals/${id}`, "Could not delete deal.");
+}
+
+export type FoundShoeImagePayload = {
+  imageBase64: string;
+  mimeType: string;
+  sourceUrl: string;
+  query: string;
+};
+
+export function findShoeImage(name: string) {
+  return postJson<FoundShoeImagePayload>(
+    "/api/find-shoe-image",
+    { name },
+    "Could not find a photo.",
+  );
+}
+
+export function attachCoverFromTitle(id: number | string) {
+  return postJson<{
+    deal: DealWithRelations;
+    sourceUrl?: string;
+  }>(`/api/deals/${id}/photos/from-title`, {}, "Could not find a photo.");
 }
