@@ -123,9 +123,17 @@ function InventoryPageInner() {
         title="Your deals"
         subtitle="Log items, track cost vs price, and mark sales fast."
         actions={
-          <Link href="/inventory/new" className="btn btn-primary w-full sm:w-auto">
-            Add deal
-          </Link>
+          <>
+            <Link
+              href="/inventory/bulk"
+              className="btn btn-secondary w-full sm:w-auto"
+            >
+              Add many
+            </Link>
+            <Link href="/inventory/new" className="btn btn-primary w-full sm:w-auto">
+              Add deal
+            </Link>
+          </>
         }
       />
 

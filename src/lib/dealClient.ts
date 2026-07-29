@@ -46,6 +46,19 @@ export function createDeal(values: DealFormValues) {
   );
 }
 
+export type BulkCreateDealsResult = {
+  created: DealWithRelations[];
+  failed?: { index: number; error: string }[];
+};
+
+export function createDealsBulk(rows: SerializedDealPayload[]) {
+  return postJson<BulkCreateDealsResult>(
+    "/api/deals/bulk",
+    { deals: rows },
+    "Could not create deals.",
+  );
+}
+
 export function updateDeal(id: number | string, values: DealFormValues) {
   return patchJson<DealWithRelations>(
     `/api/deals/${id}`,
