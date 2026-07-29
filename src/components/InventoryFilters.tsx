@@ -4,19 +4,10 @@ import {
   DEAL_OWNER_LABELS,
   DEAL_OWNERS,
   type Category,
-  type DealOwner,
 } from "@/db/schema";
+import type { InventoryFilterState } from "@/lib/inventoryFilters";
 
-export type InventoryFilterState = {
-  q: string;
-  status: "all" | "in_stock" | "sold";
-  owner: "all" | DealOwner;
-  categoryId: string;
-  size: string;
-  purchasedFrom: string;
-  purchasedTo: string;
-  sort: "newest" | "oldest" | "name" | "profit" | "price";
-};
+export type { InventoryFilterState } from "@/lib/inventoryFilters";
 
 type Props = {
   categories: Category[];

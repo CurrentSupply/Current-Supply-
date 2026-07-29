@@ -1,79 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { DealCard } from "@/components/DealCard";
-import {
-  InventoryFilters,
-  type InventoryFilterState,
-} from "@/components/InventoryFilters";
+import { InventoryFilters } from "@/components/InventoryFilters";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
-import { DEAL_OWNERS, type Category, type DealOwner } from "@/db/schema";
+import type { Category } from "@/db/schema";
 import { markDealSold } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import { getJson } from "@/lib/http";
-
-const SORTS = new Set<InventoryFilterState["sort"]>([
-  "newest",
-  "oldest",
-  "name",
-  "profit",
-  "price",
-]);
-
-function filtersFromSearchParams(
-  searchParams: URLSearchParams,
-): InventoryFilterState {
-  const statusRaw = searchParams.get("status");
-  const status =
-    statusRaw === "in_stock" || statusRaw === "sold" ? statusRaw : "all";
-
-  const ownerRaw = searchParams.get("owner");
-  const owner =
-    ownerRaw && (DEAL_OWNERS as readonly string[]).includes(ownerRaw)
-      ? (ownerRaw as DealOwner)
-      : "all";
-
-  const sortRaw = searchParams.get("sort");
-  const sort =
-    sortRaw && SORTS.has(sortRaw as InventoryFilterState["sort"])
-      ? (sortRaw as InventoryFilterState["sort"])
-      : "newest";
-
-  const categoryId = searchParams.get("categoryId");
-  const categoryOk =
-    categoryId &&
-    categoryId !== "all" &&
-    Number.isFinite(Number(categoryId)) &&
-    Number(categoryId) > 0
-      ? categoryId
-      : "all";
-
-  return {
-    q: searchParams.get("q") ?? "",
-    status,
-    owner,
-    categoryId: categoryOk,
-    size: searchParams.get("size") ?? "",
-    purchasedFrom: searchParams.get("purchasedFrom") ?? "",
-    purchasedTo: searchParams.get("purchasedTo") ?? "",
-    sort,
-  };
-}
+import {
+  filtersFromSearchParams,
+  filtersToQueryString,
+  filtersToSearchParams,
+  type InventoryFilterState,
+  readStoredInventoryFilters,
+  searchParamsHaveFilters,
+  writeStoredInventoryFilters,
+} from "@/lib/inventoryFilters";
 
 function InventoryPageInner() {
+  const router = useRouter();
   const searchParams = useSearchParams();
-  const [filters, setFilters] = useState<InventoryFilterState>(() =>
-    filtersFromSearchParams(searchParams),
-  );
+  const [restoreChecked, setRestoreChecked] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [deals, setDeals] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [soldTarget, setSoldTarget] = useState<DealWithRelations | null>(null);
+
+  const filters = useMemo(
+    () => filtersFromSearchParams(searchParams),
+    [searchParams],
+  );
 
   useEffect(() => {
     void getJson<Category[]>("/api/categories", "Failed to load categories.")
@@ -83,19 +45,35 @@ function InventoryPageInner() {
       );
   }, []);
 
+  // Restore last filter/sort onto bare /inventory after leaving the page.
+  useEffect(() => {
+    if (searchParamsHaveFilters(searchParams)) {
+      queueMicrotask(() => setRestoreChecked(true));
+      return;
+    }
+    const stored = readStoredInventoryFilters();
+    const qs = stored ? filtersToQueryString(stored) : "";
+    if (qs) {
+      router.replace(`/inventory?${qs}`, { scroll: false });
+    }
+    queueMicrotask(() => setRestoreChecked(true));
+  }, [router, searchParams]);
+
+  const updateFilters = useCallback(
+    (next: InventoryFilterState) => {
+      writeStoredInventoryFilters(next);
+      const qs = filtersToQueryString(next);
+      router.replace(qs ? `/inventory?${qs}` : "/inventory", { scroll: false });
+    },
+    [router],
+  );
+
   const loadDeals = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const params = new URLSearchParams();
-      if (filters.q) params.set("q", filters.q);
-      if (filters.status !== "all") params.set("status", filters.status);
-      if (filters.owner !== "all") params.set("owner", filters.owner);
-      if (filters.categoryId !== "all") params.set("categoryId", filters.categoryId);
-      if (filters.size) params.set("size", filters.size);
-      if (filters.purchasedFrom) params.set("purchasedFrom", filters.purchasedFrom);
-      if (filters.purchasedTo) params.set("purchasedTo", filters.purchasedTo);
-      params.set("sort", filters.sort);
+      const params = filtersToSearchParams(filters);
+      if (!params.has("sort")) params.set("sort", filters.sort);
 
       const rows = await getJson<DealWithRelations[]>(
         `/api/deals?${params.toString()}`,
@@ -110,11 +88,17 @@ function InventoryPageInner() {
   }, [filters]);
 
   useEffect(() => {
+    if (!restoreChecked) return;
+    // Wait until a pending localStorage → URL restore has landed in the address bar.
+    if (!searchParamsHaveFilters(searchParams)) {
+      const stored = readStoredInventoryFilters();
+      if (stored && filtersToQueryString(stored)) return;
+    }
     const handle = setTimeout(() => {
       void loadDeals();
     }, 200);
     return () => clearTimeout(handle);
-  }, [loadDeals]);
+  }, [loadDeals, restoreChecked, searchParams]);
 
   return (
     <div className="min-w-0 space-y-5">
@@ -140,12 +124,12 @@ function InventoryPageInner() {
       <InventoryFilters
         categories={categories}
         value={filters}
-        onChange={setFilters}
+        onChange={updateFilters}
       />
 
       {error ? <PageError message={error} /> : null}
 
-      {loading ? (
+      {loading || !restoreChecked ? (
         <PageLoading label="Loading deals…" />
       ) : deals.length === 0 ? (
         <PageEmpty
