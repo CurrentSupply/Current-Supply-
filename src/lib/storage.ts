@@ -22,9 +22,12 @@ export async function saveUpload(
   const supabase = getServiceSupabase();
   const path = filename.replace(/^\/+/, "");
 
+  // Pass Uint8Array — supabase-js can UTF-8-mangle Node Buffers into U+FFFD.
+  const bytes = new Uint8Array(buffer);
+
   const { error } = await supabase.storage
     .from(DEAL_PHOTOS_BUCKET)
-    .upload(path, buffer, {
+    .upload(path, bytes, {
       contentType,
       upsert: true,
     });
