@@ -3,6 +3,7 @@ import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import { findShoeImageFromTitle } from "@/lib/findShoeImage";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Body = {
   name?: string;

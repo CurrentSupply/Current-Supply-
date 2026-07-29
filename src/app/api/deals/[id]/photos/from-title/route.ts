@@ -4,6 +4,7 @@ import { jsonCatch, jsonError } from "@/lib/apiResponse";
 import { attachCoverPhotoFromTitle } from "@/lib/attachCoverFromTitle";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
 
 type Params = { params: Promise<{ id: string }> };
 

@@ -188,7 +188,7 @@ export function DealForm({
       );
       setCoverFile(file);
       setPhotoHint(
-        "Photo found from the title — double-check it’s the right shoe before saving.",
+        "HD full-shoe photo found — double-check it’s the right model before saving.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not find a photo.");
@@ -345,8 +345,8 @@ export function DealForm({
             required
           />
           <p className="text-xs text-[var(--muted)]">
-            Tip: type the product name, then use Find photo from name if you
-            don&apos;t have a picture.
+            Tip: use a clear product name (brand, model, colorway), then Find
+            photo from name for an HD full-shoe cover.
           </p>
         </div>
         <div className="field">
