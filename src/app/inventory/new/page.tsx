@@ -7,7 +7,7 @@ import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
 import type { Category } from "@/db/schema";
-import { createDeal } from "@/lib/dealClient";
+import { attachCoverFromTitle, createDeal } from "@/lib/dealClient";
 import { getJson } from "@/lib/http";
 import { uploadDealCover } from "@/lib/uploadCover";
 
@@ -34,6 +34,13 @@ export default function NewDealPage() {
 
     if (coverFile) {
       await uploadDealCover(data.id, coverFile);
+    } else if (values.name.trim()) {
+      // No upload — try to populate a cover from the title.
+      try {
+        await attachCoverFromTitle(data.id);
+      } catch {
+        // Photo lookup is best-effort; deal is already saved.
+      }
     }
 
     router.push(`/inventory/${data.id}`);

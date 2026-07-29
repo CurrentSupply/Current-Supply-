@@ -101,3 +101,25 @@ export function fetchDeal(id: number | string) {
 export function deleteDeal(id: number | string) {
   return deleteJson(`/api/deals/${id}`, "Could not delete deal.");
 }
+
+export type FoundShoeImagePayload = {
+  imageBase64: string;
+  mimeType: string;
+  sourceUrl: string;
+  query: string;
+};
+
+export function findShoeImage(name: string) {
+  return postJson<FoundShoeImagePayload>(
+    "/api/find-shoe-image",
+    { name },
+    "Could not find a photo.",
+  );
+}
+
+export function attachCoverFromTitle(id: number | string) {
+  return postJson<{
+    deal: DealWithRelations;
+    sourceUrl?: string;
+  }>(`/api/deals/${id}/photos/from-title`, {}, "Could not find a photo.");
+}

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { ensureDb } from "@/db";
 import { jsonCatch, jsonError } from "@/lib/apiResponse";
+import { attachCoverPhotoFromTitle } from "@/lib/attachCoverFromTitle";
 import { parseDealCreateBody } from "@/lib/dealPayload";
 import { createDeal, type DealWithRelations } from "@/lib/deals";
 import { syncDealToGoogleSheet } from "@/lib/googleSheets";
@@ -34,14 +35,22 @@ export async function POST(request: Request) {
       }
 
       try {
-        // Bulk entry is always in-stock; photos / sold flow stay on detail.
-        const full = await createDeal({
+        // Bulk entry is always in-stock; no uploaded photos in this flow.
+        let full = await createDeal({
           ...parsed.data,
           status: "in_stock",
           soldAt: null,
           hasBox: false,
           hasInsoles: false,
         });
+
+        // Best-effort cover from title so inventory cards aren’t empty.
+        try {
+          full = await attachCoverPhotoFromTitle(full.id, full.name);
+        } catch {
+          // Keep the deal even if image search fails.
+        }
+
         void syncDealToGoogleSheet(full);
         created.push(full);
       } catch (err) {

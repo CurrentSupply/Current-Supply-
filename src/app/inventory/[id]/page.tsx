@@ -263,7 +263,12 @@ export default function DealDetailPage() {
         </div>
       </div>
 
-      <PhotoUploader dealId={deal.id} photos={deal.photos} onChange={load} />
+      <PhotoUploader
+        dealId={deal.id}
+        dealName={deal.name}
+        photos={deal.photos}
+        onChange={load}
+      />
 
       <MarkSoldDialog
         open={markSoldOpen}

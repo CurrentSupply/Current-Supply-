@@ -13,6 +13,7 @@ import {
   type DealCondition,
   type DealOwner,
 } from "@/db/schema";
+import { findShoeImage } from "@/lib/dealClient";
 import {
   calcProfit,
   formatMoney,
@@ -20,9 +21,7 @@ import {
   profitToneClass,
   toInputDate,
 } from "@/lib/format";
-import { postJson } from "@/lib/http";
 import { ALLOWED_IMAGE_TYPES, MAX_PHOTO_BYTES } from "@/lib/photoLimits";
-import { compressImage } from "@/lib/compressImage";
 
 export type DealFormValues = {
   name: string;
@@ -75,6 +74,19 @@ function fromDeal(deal?: Partial<Deal>): DealFormValues {
   };
 }
 
+function base64ToFile(
+  base64: string,
+  mimeType: string,
+  filename: string,
+): File {
+  const raw = atob(base64.replace(/^data:[^;]+;base64,/, ""));
+  const bytes = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; i++) {
+    bytes[i] = raw.charCodeAt(i);
+  }
+  return new File([bytes], filename, { type: mimeType });
+}
+
 export function DealForm({
   categories,
   initial,
@@ -88,8 +100,8 @@ export function DealForm({
   const [busy, setBusy] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [identifyBusy, setIdentifyBusy] = useState(false);
-  const [identifyHint, setIdentifyHint] = useState("");
+  const [findBusy, setFindBusy] = useState(false);
+  const [photoHint, setPhotoHint] = useState("");
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const coverPreviewUrl = useMemo(() => {
@@ -118,8 +130,7 @@ export function DealForm({
     setValues((prev) => ({
       ...prev,
       status,
-      soldAt:
-        status === "sold" ? prev.soldAt || toInputDate() : "",
+      soldAt: status === "sold" ? prev.soldAt || toInputDate() : "",
     }));
   }
 
@@ -146,62 +157,43 @@ export function DealForm({
       return;
     }
     setError("");
-    setIdentifyHint("");
+    setPhotoHint("");
     setCoverFile(file);
   }
 
-  async function fileToBase64(file: File): Promise<string> {
-    const buffer = await file.arrayBuffer();
-    const bytes = new Uint8Array(buffer);
-    let binary = "";
-    for (let i = 0; i < bytes.length; i++) {
-      binary += String.fromCharCode(bytes[i]!);
-    }
-    return btoa(binary);
-  }
-
-  async function identifyShoe() {
-    if (!coverFile && !initialCoverFilename) {
-      setError("Add a cover photo first, then identify.");
+  async function findPhotoFromName() {
+    const name = values.name.trim();
+    if (!name) {
+      setError("Enter an item name first, then find a photo.");
       return;
     }
 
-    setIdentifyBusy(true);
+    setFindBusy(true);
     setError("");
-    setIdentifyHint("");
+    setPhotoHint("");
     try {
-      let payload: { imageBase64?: string; mimeType?: string; imageUrl?: string };
-      if (coverFile) {
-        const prepared = await compressImage(coverFile, {
-          maxEdge: 1024,
-          quality: 0.72,
-        });
-        payload = {
-          imageBase64: await fileToBase64(prepared),
-          mimeType: prepared.type || "image/jpeg",
-        };
-      } else {
-        payload = { imageUrl: photoUrl(initialCoverFilename!) };
-      }
-
-      const result = await postJson<{
-        name: string;
-        confidence: "high" | "medium" | "low";
-        notes?: string;
-      }>("/api/identify-shoe", payload, "Could not identify shoe.");
-
-      update("name", result.name);
-      setIdentifyHint(
-        result.confidence === "high"
-          ? "Name filled from photo — double-check before saving."
-          : `Guessed (${result.confidence} confidence)${
-              result.notes ? `: ${result.notes}` : ""
-            }. Edit if needed.`,
+      const result = await findShoeImage(name);
+      const ext =
+        result.mimeType === "image/png"
+          ? "png"
+          : result.mimeType === "image/webp"
+            ? "webp"
+            : result.mimeType === "image/gif"
+              ? "gif"
+              : "jpg";
+      const file = base64ToFile(
+        result.imageBase64,
+        result.mimeType,
+        `${name.slice(0, 60)}.${ext}`,
+      );
+      setCoverFile(file);
+      setPhotoHint(
+        "Photo found from the title — double-check it’s the right shoe before saving.",
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not identify shoe.");
+      setError(err instanceof Error ? err.message : "Could not find a photo.");
     } finally {
-      setIdentifyBusy(false);
+      setFindBusy(false);
     }
   }
 
@@ -291,16 +283,19 @@ export function DealForm({
                 <button
                   type="button"
                   className="btn btn-primary"
-                  disabled={identifyBusy || busy}
-                  onClick={() => void identifyShoe()}
+                  disabled={findBusy || busy || !values.name.trim()}
+                  onClick={() => void findPhotoFromName()}
                 >
-                  {identifyBusy ? "Identifying…" : "Identify shoe"}
+                  {findBusy ? "Finding…" : "Find from name"}
                 </button>
                 {coverFile ? (
                   <button
                     type="button"
                     className="btn btn-ghost"
-                    onClick={() => setCoverFile(null)}
+                    onClick={() => {
+                      setCoverFile(null);
+                      setPhotoHint("");
+                    }}
                   >
                     Clear new photo
                   </button>
@@ -308,20 +303,35 @@ export function DealForm({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              className="flex w-full flex-col items-center gap-2 px-4 py-10 text-center"
-              onClick={() => coverInputRef.current?.click()}
-            >
-              <span className="text-sm font-medium text-[var(--ink)]">
-                Add cover photo
-              </span>
-              <span className="text-sm text-[var(--muted)]">
-                Drag & drop or click to choose. JPG, PNG, WebP, GIF up to 8MB.
-              </span>
-            </button>
+            <div className="px-4 py-10 text-center">
+              <button
+                type="button"
+                className="mx-auto flex w-full flex-col items-center gap-2"
+                onClick={() => coverInputRef.current?.click()}
+              >
+                <span className="text-sm font-medium text-[var(--ink)]">
+                  Add cover photo
+                </span>
+                <span className="text-sm text-[var(--muted)]">
+                  Drag & drop or click to choose. JPG, PNG, WebP, GIF up to 8MB.
+                </span>
+              </button>
+              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={findBusy || busy || !values.name.trim()}
+                  onClick={() => void findPhotoFromName()}
+                >
+                  {findBusy ? "Finding…" : "Find photo from name"}
+                </button>
+              </div>
+            </div>
           )}
         </div>
+        {photoHint ? (
+          <p className="mt-2 text-xs text-[var(--muted)]">{photoHint}</p>
+        ) : null}
       </div>
 
       <div className="grid min-w-0 gap-4 sm:grid-cols-2">
@@ -334,14 +344,10 @@ export function DealForm({
             placeholder="Jordan 1 Retro High OG"
             required
           />
-          {identifyHint ? (
-            <p className="text-xs text-[var(--muted)]">{identifyHint}</p>
-          ) : (
-            <p className="text-xs text-[var(--muted)]">
-              Tip: add a cover photo, then use Identify shoe to autofill the
-              name.
-            </p>
-          )}
+          <p className="text-xs text-[var(--muted)]">
+            Tip: type the product name, then use Find photo from name if you
+            don&apos;t have a picture.
+          </p>
         </div>
         <div className="field">
           <label htmlFor="size">Size</label>

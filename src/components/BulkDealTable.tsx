@@ -207,8 +207,9 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-[var(--muted)]">
-        Enter deals as rows — no photos here. Add pictures later on each deal&apos;s
-        detail page. Blank rows are skipped. Status is always in stock.
+        Enter deals as rows — no photo upload here. Covers are filled from each
+        title when possible; you can replace them later on the deal page. Blank
+        rows are skipped. Status is always in stock.
       </p>
 
       {formError ? (
