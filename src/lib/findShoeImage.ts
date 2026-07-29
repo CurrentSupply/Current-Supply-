@@ -172,6 +172,146 @@ function slugToStockXProductFile(slug: string): string {
   return `${parts.join("-")}-Product.jpg`;
 }
 
+/** Expand short reseller nicknames into searchable product titles. */
+function expandSearchQueries(name: string): string[] {
+  const trimmed = name.trim().replace(/\s+/g, " ");
+  if (!trimmed) return [];
+  const lower = trimmed.toLowerCase();
+  const out: string[] = [trimmed];
+
+  if (/^volt\s*6\b/.test(lower) || /\bjordan\s*6\s*volt\b/.test(lower)) {
+    out.push(
+      "Air Jordan 6 Retro Electric Green",
+      "Jordan 6 Retro Electric Green",
+    );
+  }
+  if (/\bpanda\b/.test(lower) && /\bdunk\b/.test(lower)) {
+    out.push("Nike Dunk Low Retro White Black");
+  }
+  if (
+    /^chicago\s*1\b/.test(lower) ||
+    /\bjordan\s*1\s*(retro\s*)?(high\s*)?chicago\b/.test(lower)
+  ) {
+    out.push("Air Jordan 1 Retro High OG Chicago");
+  }
+
+  // "volt 6" / "bred 4" style: colorway + model number
+  const colorModel = lower.match(
+    /^([a-z][a-z0-9-]*)\s+(\d{1,2})(?:\s|$)/,
+  );
+  if (
+    colorModel &&
+    !/\b(jordan|nike|adidas|yeezy|new balance|asics|dunk)\b/.test(lower)
+  ) {
+    const color = colorModel[1];
+    const model = colorModel[2];
+    out.push(
+      `Air Jordan ${model} Retro ${color}`,
+      `Jordan ${model} Retro ${color}`,
+      `Air Jordan ${model} ${color}`,
+    );
+  }
+
+  if (
+    /^\d+\b/.test(lower) &&
+    !/\b(jordan|nike|adidas|yeezy|new balance)\b/.test(lower)
+  ) {
+    out.push(`Air Jordan ${trimmed}`, `Jordan ${trimmed}`);
+  }
+
+  return Array.from(new Set(out));
+}
+
+/**
+ * Guess StockX CDN product plates directly from the title.
+ * Works even when DuckDuckGo/Bing web search are blocked on Vercel.
+ */
+function guessStockXProductCandidates(query: string): ImageCandidate[] {
+  const year = new Date().getUTCFullYear();
+  const years = ["", `-${year}`, `-${year - 1}`, `-${year - 2}`, "-2021"];
+  const bases = new Set<string>();
+
+  for (const expanded of expandSearchQueries(query)) {
+    const slug = expanded
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!slug) continue;
+    bases.add(slug);
+    if (!slug.startsWith("air-")) bases.add(`air-${slug}`);
+    if (/^jordan-\d+/.test(slug) && !slug.includes("retro")) {
+      bases.add(slug.replace(/^(jordan-\d+)/, "$1-retro"));
+      bases.add(`air-${slug.replace(/^(jordan-\d+)/, "$1-retro")}`);
+    }
+    if (/dunk-low/.test(slug) && !slug.includes("retro")) {
+      bases.add(slug.replace("dunk-low", "dunk-low-retro"));
+    }
+    if (/panda/.test(slug) && /dunk/.test(slug)) {
+      bases.add("nike-dunk-low-retro-white-black");
+    }
+  }
+
+  const out: ImageCandidate[] = [];
+  for (const base of bases) {
+    for (const suffix of years) {
+      const file = slugToStockXProductFile(`${base}${suffix}`);
+      out.push({
+        url: upgradeStockXImageUrl(`https://images.stockx.com/images/${file}`),
+        width: 1400,
+        height: 1000,
+        title: `${base} product`,
+        score: 160,
+      });
+    }
+  }
+  return uniqueCandidates(out, 40);
+}
+
+async function searchStockXDirect(query: string): Promise<ImageCandidate[]> {
+  // Probe CDN guesses with cheap HEAD requests (parallel batches).
+  const guesses = guessStockXProductCandidates(query);
+  const hits: ImageCandidate[] = [];
+  const batchSize = 8;
+
+  for (let i = 0; i < guesses.length && hits.length < 4; i += batchSize) {
+    const batch = guesses.slice(i, i + batchSize);
+    const results = await Promise.all(
+      batch.map(async (guess) => {
+        try {
+          const res = await fetch(guess.url, {
+            method: "HEAD",
+            headers: {
+              "User-Agent": BROWSER_UA,
+              Accept: "image/*,*/*;q=0.8",
+              Referer: "https://stockx.com/",
+            },
+            redirect: "follow",
+            signal: AbortSignal.timeout(5_000),
+          });
+          if (!res.ok) return null;
+          const contentType = (res.headers.get("content-type") || "")
+            .split(";")[0]
+            .trim()
+            .toLowerCase();
+          if (!contentType.startsWith("image/")) return null;
+          const length = Number(res.headers.get("content-length") || 0);
+          if (length > 0 && length < MIN_BYTES) return null;
+          return guess;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    for (const hit of results) {
+      if (!hit) continue;
+      hits.push(hit);
+      if (hits.length >= 4) break;
+    }
+  }
+  return hits;
+}
+
 function extractStockXSlugs(links: string[]): string[] {
   const slugs: string[] = [];
   const skip = new Set([
@@ -342,7 +482,7 @@ async function searchStockXCatalog(query: string): Promise<ImageCandidate[]> {
     });
 
     const ogImage = await fetchMicrolinkImage(`https://stockx.com/${slug}`);
-    if (ogImage) {
+    if (ogImage && !isPlaceholderUrl(ogImage)) {
       out.push({
         url: upgradeStockXImageUrl(ogImage),
         width: 1400,
@@ -452,9 +592,41 @@ async function searchBingThumbnail(query: string): Promise<ImageCandidate[]> {
   ];
 }
 
+function sniffsLikeImage(buffer: Buffer): boolean {
+  if (buffer.byteLength < 12) return false;
+  if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+    return true;
+  }
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return true;
+  }
+  if (buffer.subarray(0, 4).toString("ascii") === "GIF8") return true;
+  if (
+    buffer.subarray(0, 4).toString("ascii") === "RIFF" &&
+    buffer.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return true;
+  }
+  if (buffer.subarray(4, 8).toString("ascii") === "ftyp") return true;
+  return false;
+}
+
+function isPlaceholderUrl(url: string): boolean {
+  return /placeholder|social-media\.jpg|default-20210415/i.test(url);
+}
+
 function normalizeMime(raw: string | null, url: string): string | null {
   const mime = (raw || "").split(";")[0].trim().toLowerCase();
+  if (mime.includes("text/html") || mime.includes("application/json")) {
+    return null;
+  }
   if (ALLOWED_IMAGE_TYPES.has(mime)) return mime;
+  if (mime.startsWith("image/")) return mime; // avif/heic → sharp may still decode
   if (/bing\.com\/th\?/i.test(url) || /mm\.bing\.net\/th\?/i.test(url)) {
     return "image/jpeg";
   }
@@ -468,6 +640,7 @@ function normalizeMime(raw: string | null, url: string): string | null {
 }
 
 async function downloadCandidate(url: string): Promise<Buffer | null> {
+  if (isPlaceholderUrl(url)) return null;
   try {
     const res = await fetch(url, {
       headers: {
@@ -487,6 +660,7 @@ async function downloadCandidate(url: string): Promise<Buffer | null> {
     if (buffer.byteLength < MIN_BYTES || buffer.byteLength > MAX_PHOTO_BYTES) {
       return null;
     }
+    if (!sniffsLikeImage(buffer)) return null;
     return buffer;
   } catch {
     return null;
@@ -495,17 +669,20 @@ async function downloadCandidate(url: string): Promise<Buffer | null> {
 
 /**
  * Keep the full shoe visible: fit inside a 1600×1200 white frame with padding.
- * Reject tiny / extreme-crop sources.
+ * Reject tiny / extreme-crop sources (relaxed for last-resort thumbnails).
  */
 async function prepareCoverImage(
   input: Buffer,
+  options: { minEdge?: number; allowUpscale?: boolean } = {},
 ): Promise<{ buffer: Buffer; mimeType: string } | null> {
+  const minEdge = options.minEdge ?? MIN_EDGE;
+  const allowUpscale = options.allowUpscale ?? false;
   try {
     const base = sharp(input, { failOn: "none" }).rotate();
     const meta = await base.metadata();
     const width = meta.width ?? 0;
     const height = meta.height ?? 0;
-    if (width < MIN_EDGE || height < MIN_EDGE) return null;
+    if (width < minEdge || height < minEdge) return null;
 
     const ratio = width / height;
     // Reject extreme crops / banners / logos.
@@ -520,7 +697,7 @@ async function prepareCoverImage(
         width: contentW,
         height: contentH,
         fit: "inside",
-        withoutEnlargement: true,
+        withoutEnlargement: !allowUpscale,
       })
       .toBuffer();
 
@@ -543,11 +720,16 @@ async function prepareCoverImage(
   }
 }
 
-const PROVIDERS: Array<(query: string) => Promise<ImageCandidate[]>> = [
-  searchStockXCatalog,
-  searchDuckDuckGoImages,
-  searchOpenverseImages,
-  searchBingThumbnail,
+const PROVIDERS: Array<{
+  run: (query: string) => Promise<ImageCandidate[]>;
+  minEdge: number;
+  allowUpscale: boolean;
+}> = [
+  { run: searchStockXDirect, minEdge: MIN_EDGE, allowUpscale: false },
+  { run: searchStockXCatalog, minEdge: MIN_EDGE, allowUpscale: false },
+  { run: searchDuckDuckGoImages, minEdge: MIN_EDGE, allowUpscale: false },
+  { run: searchOpenverseImages, minEdge: 400, allowUpscale: true },
+  { run: searchBingThumbnail, minEdge: 300, allowUpscale: true },
 ];
 
 /** Find a product-style image for a deal title (no uploaded photo). */
@@ -567,7 +749,7 @@ export async function findShoeImageFromTitle(
   for (const provider of PROVIDERS) {
     let candidates: ImageCandidate[] = [];
     try {
-      candidates = rankCandidates(await provider(query));
+      candidates = rankCandidates(await provider.run(query));
     } catch {
       continue;
     }
@@ -581,7 +763,10 @@ export async function findShoeImageFromTitle(
       const downloaded = await downloadCandidate(candidate.url);
       if (!downloaded) continue;
 
-      const prepared = await prepareCoverImage(downloaded);
+      const prepared = await prepareCoverImage(downloaded, {
+        minEdge: provider.minEdge,
+        allowUpscale: provider.allowUpscale,
+      });
       if (!prepared) continue;
 
       return {
