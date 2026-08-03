@@ -22,8 +22,6 @@ type BulkRow = {
   size: string;
   cost: string;
   price: string;
-  categoryId: string;
-  owner: DealOwner;
   condition: DealCondition;
   purchasedAt: string;
 };
@@ -47,8 +45,6 @@ function emptyRow(defaults?: Partial<BulkRow>): BulkRow {
     size: "",
     cost: "",
     price: "",
-    categoryId: defaults?.categoryId ?? "",
-    owner: defaults?.owner ?? "other",
     condition: defaults?.condition ?? "Used",
     purchasedAt: defaults?.purchasedAt ?? toInputDate(),
   };
@@ -63,7 +59,10 @@ function isBlankRow(row: BulkRow): boolean {
   );
 }
 
-function validateRow(row: BulkRow): string | null {
+function validateRow(
+  row: BulkRow,
+  shared: { categoryId: string },
+): string | null {
   if (!row.name.trim()) return "Name is required.";
   if (!row.size.trim()) return "Size is required.";
   if (!row.cost.trim() || !Number.isFinite(Number(row.cost))) {
@@ -73,13 +72,16 @@ function validateRow(row: BulkRow): string | null {
     return "Price is required.";
   }
   if (!row.purchasedAt) return "Purchase date is required.";
-  if (!row.categoryId || Number(row.categoryId) <= 0) {
+  if (!shared.categoryId || Number(shared.categoryId) <= 0) {
     return "Category is required.";
   }
   return null;
 }
 
-function toPayload(row: BulkRow): SerializedDealPayload {
+function toPayload(
+  row: BulkRow,
+  shared: { categoryId: string; owner: DealOwner },
+): SerializedDealPayload {
   return {
     name: row.name.trim(),
     size: row.size.trim(),
@@ -88,9 +90,9 @@ function toPayload(row: BulkRow): SerializedDealPayload {
     condition: row.condition,
     hasBox: false,
     hasInsoles: false,
-    categoryId: Number(row.categoryId),
+    categoryId: Number(shared.categoryId),
     status: "in_stock",
-    owner: row.owner,
+    owner: shared.owner,
     purchasedAt: row.purchasedAt,
     soldAt: null,
     notes: "",
@@ -99,6 +101,10 @@ function toPayload(row: BulkRow): SerializedDealPayload {
 }
 
 export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
+  const [sharedCategoryId, setSharedCategoryId] = useState(
+    () => (categories[0] ? String(categories[0].id) : ""),
+  );
+  const [sharedOwner, setSharedOwner] = useState<DealOwner>("other");
   const [rows, setRows] = useState<BulkRow[]>(() =>
     Array.from({ length: 5 }, () => emptyRow()),
   );
@@ -109,6 +115,11 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
   const filledCount = useMemo(
     () => rows.filter((row) => !isBlankRow(row)).length,
     [rows],
+  );
+
+  const shared = useMemo(
+    () => ({ categoryId: sharedCategoryId, owner: sharedOwner }),
+    [sharedCategoryId, sharedOwner],
   );
 
   function updateRow<K extends keyof BulkRow>(
@@ -133,8 +144,6 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
       return [
         ...prev,
         emptyRow({
-          categoryId: last?.categoryId,
-          owner: last?.owner,
           condition: last?.condition,
           purchasedAt: last?.purchasedAt ?? toInputDate(),
         }),
@@ -163,9 +172,14 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
       return;
     }
 
+    if (!sharedCategoryId || Number(sharedCategoryId) <= 0) {
+      setFormError("Choose a category for all deals.");
+      return;
+    }
+
     const errors: Record<string, string> = {};
     for (const row of candidates) {
-      const message = validateRow(row);
+      const message = validateRow(row, shared);
       if (message) errors[row.key] = message;
     }
     if (Object.keys(errors).length > 0) {
@@ -176,7 +190,9 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
 
     setBusy(true);
     try {
-      const result = await createDealsBulk(candidates.map(toPayload));
+      const result = await createDealsBulk(
+        candidates.map((row) => toPayload(row, shared)),
+      );
       if (result.failed && result.failed.length > 0) {
         const nextErrors: Record<string, string> = {};
         for (const failure of result.failed) {
@@ -212,6 +228,49 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
         rows are skipped. Status is always in stock.
       </p>
 
+      <section className="surface rounded-none p-4">
+        <p className="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
+          Applies to every row
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <div className="field">
+            <label htmlFor="bulk-shared-category">Category</label>
+            <select
+              id="bulk-shared-category"
+              value={sharedCategoryId}
+              onChange={(e) => {
+                setSharedCategoryId(e.target.value);
+                setFormError("");
+              }}
+              disabled={busy}
+              required
+            >
+              <option value="">Select…</option>
+              {categories.map((c) => (
+                <option key={c.id} value={String(c.id)}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="field">
+            <label htmlFor="bulk-shared-owner">Owner</label>
+            <select
+              id="bulk-shared-owner"
+              value={sharedOwner}
+              onChange={(e) => setSharedOwner(e.target.value as DealOwner)}
+              disabled={busy}
+            >
+              {DEAL_OWNERS.map((owner) => (
+                <option key={owner} value={owner}>
+                  {DEAL_OWNER_LABELS[owner]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </section>
+
       {formError ? (
         <p className="border border-black bg-[#f3f3f3] p-3 text-sm text-[var(--danger)]">
           {formError}
@@ -219,15 +278,13 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
       ) : null}
 
       <div className="-mx-1 overflow-x-auto">
-        <table className="min-w-[960px] w-full border-collapse text-left text-sm">
+        <table className="min-w-[760px] w-full border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-black text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
               <th className="px-2 py-2">Name</th>
               <th className="px-2 py-2">Size</th>
               <th className="px-2 py-2">Cost</th>
               <th className="px-2 py-2">Price</th>
-              <th className="px-2 py-2">Category</th>
-              <th className="px-2 py-2">Owner</th>
               <th className="px-2 py-2">Condition</th>
               <th className="px-2 py-2">Purchased</th>
               <th className="px-2 py-2 w-12">
@@ -314,56 +371,6 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                         }
                         disabled={busy}
                       />
-                    </div>
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="field">
-                      <label
-                        className="sr-only"
-                        htmlFor={`${row.key}-category`}
-                      >
-                        Category {index + 1}
-                      </label>
-                      <select
-                        id={`${row.key}-category`}
-                        value={row.categoryId}
-                        onChange={(e) =>
-                          updateRow(row.key, "categoryId", e.target.value)
-                        }
-                        disabled={busy}
-                      >
-                        <option value="">Select</option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </td>
-                  <td className="px-2 py-2">
-                    <div className="field">
-                      <label className="sr-only" htmlFor={`${row.key}-owner`}>
-                        Owner {index + 1}
-                      </label>
-                      <select
-                        id={`${row.key}-owner`}
-                        value={row.owner}
-                        onChange={(e) =>
-                          updateRow(
-                            row.key,
-                            "owner",
-                            e.target.value as DealOwner,
-                          )
-                        }
-                        disabled={busy}
-                      >
-                        {DEAL_OWNERS.map((owner) => (
-                          <option key={owner} value={owner}>
-                            {DEAL_OWNER_LABELS[owner]}
-                          </option>
-                        ))}
-                      </select>
                     </div>
                   </td>
                   <td className="px-2 py-2">

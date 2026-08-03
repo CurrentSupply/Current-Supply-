@@ -31,7 +31,7 @@ export default function BulkDealsPage() {
       <PageHeader
         kicker="Inventory"
         title="Add many deals"
-        subtitle="Spreadsheet-style entry for in-stock items. Photos can be added later on each deal."
+        subtitle="Set category and owner once, then enter rows. Photos can be added later on each deal."
         back={
           <Link
             href="/inventory"
