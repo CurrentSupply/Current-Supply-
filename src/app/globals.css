@@ -251,7 +251,11 @@ select {
 
 .profit-zero {
   color: var(--muted);
-  font-weight: 700;
+  font-weight: 600;
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
 }
 
 .page-kicker {

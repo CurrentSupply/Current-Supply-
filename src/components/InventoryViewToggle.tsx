@@ -27,7 +27,7 @@ export function InventoryViewToggle({ value, onChange }: Props) {
             type="button"
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className={`whitespace-nowrap px-3 py-2 text-[0.65rem] font-bold uppercase tracking-[0.1em] transition sm:px-4 sm:text-[0.72rem] ${
+            className={`whitespace-nowrap px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.1em] transition sm:px-3 sm:text-[0.68rem] ${
               index > 0 ? "border-l border-black" : ""
             } ${
               active
