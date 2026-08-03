@@ -86,6 +86,28 @@ export function markDealInStock(id: number | string) {
   );
 }
 
+export type QuickEditDealFields = {
+  name: string;
+  size: string;
+  cost: number;
+  price: number;
+  condition: DealFormValues["condition"];
+  owner: DealFormValues["owner"];
+  categoryId: number;
+  platform: string;
+};
+
+export function patchDealFields(
+  id: number | string,
+  fields: QuickEditDealFields,
+) {
+  return patchJson<DealWithRelations>(
+    `/api/deals/${id}`,
+    fields,
+    "Could not save deal.",
+  );
+}
+
 export function updateDealSoldAt(id: number | string, soldAt: string) {
   return patchJson<DealWithRelations>(
     `/api/deals/${id}`,

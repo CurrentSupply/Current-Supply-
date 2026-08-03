@@ -14,6 +14,7 @@ import {
 type Props = {
   deals: DealWithRelations[];
   onMarkSold?: (deal: DealWithRelations) => void;
+  onQuickEdit?: (deal: DealWithRelations) => void;
 };
 
 function initials(name: string): string {
@@ -23,7 +24,7 @@ function initials(name: string): string {
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
 }
 
-export function DealList({ deals, onMarkSold }: Props) {
+export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
   return (
     <section className="surface overflow-hidden rounded-none">
       <div className="overflow-x-auto">
@@ -120,22 +121,33 @@ export function DealList({ deals, onMarkSold }: Props) {
                     {ownerLabel}
                   </td>
                   <td className="px-3 py-2 text-right whitespace-nowrap sm:px-4">
-                    {deal.status === "in_stock" && onMarkSold ? (
-                      <button
-                        type="button"
-                        className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
-                        onClick={() => onMarkSold(deal)}
-                      >
-                        Mark sold
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/inventory/${deal.id}`}
-                        className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
-                      >
-                        Open
-                      </Link>
-                    )}
+                    <div className="flex items-center justify-end gap-3">
+                      {onQuickEdit ? (
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
+                          onClick={() => onQuickEdit(deal)}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {deal.status === "in_stock" && onMarkSold ? (
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
+                          onClick={() => onMarkSold(deal)}
+                        >
+                          Mark sold
+                        </button>
+                      ) : (
+                        <Link
+                          href={`/inventory/${deal.id}`}
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
+                        >
+                          Open
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

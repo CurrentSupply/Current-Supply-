@@ -10,8 +10,9 @@ import { InventoryViewToggle } from "@/components/InventoryViewToggle";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
+import { QuickEditDialog } from "@/components/QuickEditDialog";
 import type { Category } from "@/db/schema";
-import { markDealSold } from "@/lib/dealClient";
+import { markDealSold, patchDealFields } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import { getJson } from "@/lib/http";
 import {
@@ -39,6 +40,7 @@ function InventoryPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [soldTarget, setSoldTarget] = useState<DealWithRelations | null>(null);
+  const [editTarget, setEditTarget] = useState<DealWithRelations | null>(null);
   const [view, setView] = useState<InventoryViewMode>("grid");
 
   const filters = useMemo(
@@ -176,7 +178,11 @@ function InventoryPageInner() {
             <InventoryViewToggle value={view} onChange={updateView} />
           </div>
           {view === "list" ? (
-            <DealList deals={deals} onMarkSold={setSoldTarget} />
+            <DealList
+              deals={deals}
+              onMarkSold={setSoldTarget}
+              onQuickEdit={setEditTarget}
+            />
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {deals.map((deal) => (
@@ -184,6 +190,7 @@ function InventoryPageInner() {
                   key={deal.id}
                   deal={deal}
                   onMarkSold={setSoldTarget}
+                  onQuickEdit={setEditTarget}
                 />
               ))}
             </div>
@@ -200,6 +207,18 @@ function InventoryPageInner() {
         onConfirm={async ({ price, soldAt }) => {
           if (!soldTarget) return;
           await markDealSold(soldTarget.id, { price, soldAt });
+          await loadDeals();
+        }}
+      />
+
+      <QuickEditDialog
+        open={editTarget !== null}
+        deal={editTarget}
+        categories={categories}
+        onClose={() => setEditTarget(null)}
+        onSave={async (fields) => {
+          if (!editTarget) return;
+          await patchDealFields(editTarget.id, fields);
           await loadDeals();
         }}
       />

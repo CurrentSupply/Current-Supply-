@@ -14,9 +14,10 @@ import {
 type Props = {
   deal: DealWithRelations;
   onMarkSold?: (deal: DealWithRelations) => void;
+  onQuickEdit?: (deal: DealWithRelations) => void;
 };
 
-export function DealCard({ deal, onMarkSold }: Props) {
+export function DealCard({ deal, onMarkSold, onQuickEdit }: Props) {
   const profit = calcProfit(deal.price, deal.cost);
   const cover = deal.coverPhoto;
   const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
@@ -94,13 +95,34 @@ export function DealCard({ deal, onMarkSold }: Props) {
         </div>
       </Link>
       {deal.status === "in_stock" && onMarkSold ? (
-        <div className="border-t border-[var(--line)] px-4 py-3">
+        <div className="flex border-t border-[var(--line)]">
+          {onQuickEdit ? (
+            <button
+              type="button"
+              className="btn btn-ghost flex-1 rounded-none"
+              onClick={() => onQuickEdit(deal)}
+            >
+              Edit
+            </button>
+          ) : null}
           <button
             type="button"
-            className="btn btn-secondary w-full"
+            className={`btn btn-secondary flex-1 rounded-none border-0 border-l border-[var(--line)] ${
+              onQuickEdit ? "" : "w-full border-l-0"
+            }`}
             onClick={() => onMarkSold(deal)}
           >
             Mark sold
+          </button>
+        </div>
+      ) : onQuickEdit ? (
+        <div className="border-t border-[var(--line)] px-4 py-3">
+          <button
+            type="button"
+            className="btn btn-ghost w-full"
+            onClick={() => onQuickEdit(deal)}
+          >
+            Edit
           </button>
         </div>
       ) : null}
