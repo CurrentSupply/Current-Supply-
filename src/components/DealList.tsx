@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -109,14 +110,16 @@ export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
                   {ownerLabel}
                 </td>
                 <td className="text-right whitespace-nowrap">
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1">
                     {onQuickEdit && (
                       <button
                         type="button"
-                        className="btn btn-ghost btn-sm"
+                        aria-label="Edit"
+                        title="Edit"
+                        className="inline-flex items-center justify-center p-1.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)]"
                         onClick={() => onQuickEdit(deal)}
                       >
-                        Edit
+                        <PencilIcon className="h-3.5 w-3.5" />
                       </button>
                     )}
                     {deal.status === "in_stock" && onMarkSold ? (
