@@ -61,7 +61,7 @@ export default function DealDetailPage() {
         title={error}
         action={
           <Link href="/inventory" className="btn btn-secondary">
-            Back to inventory
+            ← Back to inventory
           </Link>
         }
       />
@@ -90,7 +90,7 @@ export default function DealDetailPage() {
             href="/inventory"
             className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
           >
-            ← Inventory
+            ← Back to inventory
           </Link>
         }
         actions={
@@ -128,7 +128,7 @@ export default function DealDetailPage() {
               Edit
             </Link>
             <Link href={`/overlay?dealId=${deal.id}`} className="btn btn-secondary">
-              Stamp photo
+              Stamp
             </Link>
             <button
               type="button"

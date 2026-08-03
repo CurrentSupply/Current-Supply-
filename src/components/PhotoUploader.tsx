@@ -120,7 +120,7 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
               disabled={busy || !dealName.trim()}
               onClick={() => void findFromTitle()}
             >
-              {busy ? "Finding…" : "Find from title"}
+              {busy ? "Finding…" : "Find cover"}
             </button>
           ) : null}
           <button
@@ -164,8 +164,8 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
         }}
       >
         <p className="text-sm text-[var(--muted)]">
-          Drag & drop images here, or use Add photos. No photo? Find one from
-          the deal title. JPG, PNG, WebP, GIF up to 8MB.
+          Drag & drop images here, or use Add photos. No photo? Find cover
+          uses the item name. JPG, PNG, WebP, GIF up to 8MB.
         </p>
       </div>
 

@@ -16,6 +16,7 @@ import {
   filtersFromSearchParams,
   filtersToQueryString,
   filtersToSearchParams,
+  inventoryFiltersAreRestrictive,
   type InventoryFilterState,
   readStoredInventoryFilters,
   searchParamsHaveFilters,
@@ -133,8 +134,16 @@ function InventoryPageInner() {
         <PageLoading label="Loading deals…" />
       ) : deals.length === 0 ? (
         <PageEmpty
-          title="No deals match"
-          description="Add your first item or clear filters to see everything."
+          title={
+            inventoryFiltersAreRestrictive(filters)
+              ? "No deals match"
+              : "No deals yet"
+          }
+          description={
+            inventoryFiltersAreRestrictive(filters)
+              ? "Try clearing filters or search to see everything."
+              : "Add your first item to start tracking deals."
+          }
           action={
             <Link href="/inventory/new" className="btn btn-primary">
               Add deal
