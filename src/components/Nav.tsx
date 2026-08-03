@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const links = [
-  { href: "/inventory", label: "Inventory" },
-  { href: "/dashboard", label: "Analytics" },
-  { href: "/finance", label: "Finance" },
-  { href: "/overlay", label: "Stamp" },
+  { href: "/inventory", label: "Inventory", shortLabel: "Items" },
+  { href: "/dashboard", label: "Analytics", shortLabel: "Stats" },
+  { href: "/finance", label: "Finance", shortLabel: "Cash" },
+  { href: "/overlay", label: "Stamp", shortLabel: "Stamp" },
 ];
 
 export function Nav() {
@@ -16,17 +16,17 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--border-secondary)] bg-[var(--bg)]/80 backdrop-blur-xl">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+      <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-6 sm:py-3">
         <Link
           href="/inventory"
-          className="flex shrink-0 items-center gap-3 text-[var(--text-primary)] transition-opacity hover:opacity-70"
+          className="flex shrink-0 items-center gap-2 sm:gap-3 text-[var(--text-primary)] transition-opacity hover:opacity-70"
         >
           <Image
             src="/current-supply-logo.png"
             alt="Current Supply"
             width={148}
             height={148}
-            className="h-10 w-10 object-contain sm:h-11 sm:w-11"
+            className="h-8 w-8 object-contain sm:h-11 sm:w-11"
             priority
             unoptimized
           />
@@ -47,7 +47,8 @@ export function Nav() {
                   active ? "segmented-control-item-active" : ""
                 }`}
               >
-                {link.label}
+                <span className="sm:hidden">{link.shortLabel}</span>
+                <span className="hidden sm:inline">{link.label}</span>
               </Link>
             );
           })}
