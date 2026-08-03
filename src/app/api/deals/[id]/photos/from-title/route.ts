@@ -8,7 +8,7 @@ export const maxDuration = 60;
 
 type Params = { params: Promise<{ id: string }> };
 
-/** Find a web photo from the deal title and save it as cover when none exist. */
+/** Find a web photo from the deal title and save/replace it as the cover. */
 export async function POST(_request: Request, { params }: Params) {
   try {
     await ensureDb();

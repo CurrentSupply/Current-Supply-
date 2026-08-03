@@ -188,7 +188,9 @@ export function DealForm({
       );
       setCoverFile(file);
       setPhotoHint(
-        "HD full-shoe photo found — double-check it’s the right model before saving.",
+        initialCoverFilename
+          ? "New cover ready — saving replaces the previous cover."
+          : "Cover found from the name — double-check it’s the right shoe, then save.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not find a photo.");
@@ -346,7 +348,8 @@ export function DealForm({
           />
           <p className="text-xs text-[var(--muted)]">
             Tip: use a clear product name (brand, model, colorway), then Find
-            cover for an HD full-shoe photo.
+            cover for an HD full-shoe photo. That replaces the previous cover
+            on save.
           </p>
         </div>
         <div className="field">
