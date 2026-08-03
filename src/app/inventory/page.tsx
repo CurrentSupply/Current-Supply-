@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { DealCard } from "@/components/DealCard";
 import { DealList } from "@/components/DealList";
 import { InventoryFilters } from "@/components/InventoryFilters";
@@ -16,6 +16,7 @@ import { markDealSold, patchDealFields } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import { getJson } from "@/lib/http";
 import {
+  DEFAULT_INVENTORY_FILTERS,
   filtersFromSearchParams,
   filtersToQueryString,
   filtersToSearchParams,
@@ -31,10 +32,17 @@ import {
   writeStoredInventoryView,
 } from "@/lib/inventoryView";
 
+function normalizeFilterQs(filters: InventoryFilterState): string {
+  return filtersToQueryString(filters);
+}
+
 function InventoryPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [restoreChecked, setRestoreChecked] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [filters, setFilters] = useState<InventoryFilterState>(
+    DEFAULT_INVENTORY_FILTERS,
+  );
   const [categories, setCategories] = useState<Category[]>([]);
   const [deals, setDeals] = useState<DealWithRelations[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,11 +50,10 @@ function InventoryPageInner() {
   const [soldTarget, setSoldTarget] = useState<DealWithRelations | null>(null);
   const [editTarget, setEditTarget] = useState<DealWithRelations | null>(null);
   const [view, setView] = useState<InventoryViewMode>("grid");
-
-  const filters = useMemo(
-    () => filtersFromSearchParams(searchParams),
-    [searchParams],
-  );
+  /** Query string we last wrote — ignore matching searchParams echoes. */
+  const lastWrittenQs = useRef<string | null>(null);
+  /** Non-null while waiting for an initial localStorage → URL restore. */
+  const pendingRestoreQs = useRef<string | null>(null);
 
   useEffect(() => {
     queueMicrotask(() => setView(readStoredInventoryView()));
@@ -60,24 +67,63 @@ function InventoryPageInner() {
       );
   }, []);
 
-  // Restore last filter/sort onto bare /inventory after leaving the page.
+  // Hydrate once: URL wins, else restore saved filters into state + URL.
   useEffect(() => {
-    if (searchParamsHaveFilters(searchParams)) {
-      queueMicrotask(() => setRestoreChecked(true));
+    queueMicrotask(() => {
+      if (searchParamsHaveFilters(searchParams)) {
+        const fromUrl = filtersFromSearchParams(searchParams);
+        setFilters(fromUrl);
+        lastWrittenQs.current = normalizeFilterQs(fromUrl);
+        writeStoredInventoryFilters(fromUrl);
+      } else {
+        const stored = readStoredInventoryFilters();
+        const qs = stored ? normalizeFilterQs(stored) : "";
+        if (stored && qs) {
+          setFilters(stored);
+          lastWrittenQs.current = qs;
+          pendingRestoreQs.current = qs;
+          router.replace(`/inventory?${qs}`, { scroll: false });
+        } else {
+          setFilters(DEFAULT_INVENTORY_FILTERS);
+          lastWrittenQs.current = "";
+        }
+      }
+      setHydrated(true);
+    });
+    // Intentionally once on mount — do not re-restore when the URL goes bare.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Adopt external URL changes (back/forward, deep links) after hydrate.
+  useEffect(() => {
+    if (!hydrated) return;
+    const fromUrl = filtersFromSearchParams(searchParams);
+    const qs = normalizeFilterQs(fromUrl);
+
+    if (pendingRestoreQs.current !== null) {
+      if (qs === pendingRestoreQs.current) {
+        pendingRestoreQs.current = null;
+      }
+      // Ignore bare/partial URL until the restore replace lands.
       return;
     }
-    const stored = readStoredInventoryFilters();
-    const qs = stored ? filtersToQueryString(stored) : "";
-    if (qs) {
-      router.replace(`/inventory?${qs}`, { scroll: false });
+
+    if (lastWrittenQs.current !== null && qs === lastWrittenQs.current) {
+      return;
     }
-    queueMicrotask(() => setRestoreChecked(true));
-  }, [router, searchParams]);
+    lastWrittenQs.current = qs;
+    queueMicrotask(() => {
+      setFilters(fromUrl);
+      writeStoredInventoryFilters(fromUrl);
+    });
+  }, [hydrated, searchParams]);
 
   const updateFilters = useCallback(
     (next: InventoryFilterState) => {
+      setFilters(next);
       writeStoredInventoryFilters(next);
-      const qs = filtersToQueryString(next);
+      const qs = normalizeFilterQs(next);
+      lastWrittenQs.current = qs;
       router.replace(qs ? `/inventory?${qs}` : "/inventory", { scroll: false });
     },
     [router],
@@ -88,12 +134,12 @@ function InventoryPageInner() {
     setView(next);
   }, []);
 
-  const loadDeals = useCallback(async () => {
+  const loadDeals = useCallback(async (active: InventoryFilterState) => {
     setLoading(true);
     setError("");
     try {
-      const params = filtersToSearchParams(filters);
-      if (!params.has("sort")) params.set("sort", filters.sort);
+      const params = filtersToSearchParams(active);
+      if (!params.has("sort")) params.set("sort", active.sort);
 
       const rows = await getJson<DealWithRelations[]>(
         `/api/deals?${params.toString()}`,
@@ -105,20 +151,15 @@ function InventoryPageInner() {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, []);
 
   useEffect(() => {
-    if (!restoreChecked) return;
-    // Wait until a pending localStorage → URL restore has landed in the address bar.
-    if (!searchParamsHaveFilters(searchParams)) {
-      const stored = readStoredInventoryFilters();
-      if (stored && filtersToQueryString(stored)) return;
-    }
+    if (!hydrated) return;
     const handle = setTimeout(() => {
-      void loadDeals();
+      void loadDeals(filters);
     }, 200);
     return () => clearTimeout(handle);
-  }, [loadDeals, restoreChecked, searchParams]);
+  }, [filters, hydrated, loadDeals]);
 
   return (
     <div className="min-w-0 space-y-5">
@@ -149,7 +190,7 @@ function InventoryPageInner() {
 
       {error ? <PageError message={error} /> : null}
 
-      {loading || !restoreChecked ? (
+      {loading || !hydrated ? (
         <PageLoading label="Loading deals…" />
       ) : deals.length === 0 ? (
         <PageEmpty
@@ -207,7 +248,7 @@ function InventoryPageInner() {
         onConfirm={async ({ price, soldAt }) => {
           if (!soldTarget) return;
           await markDealSold(soldTarget.id, { price, soldAt });
-          await loadDeals();
+          await loadDeals(filters);
         }}
       />
 
@@ -219,7 +260,7 @@ function InventoryPageInner() {
         onSave={async (fields) => {
           if (!editTarget) return;
           await patchDealFields(editTarget.id, fields);
-          await loadDeals();
+          await loadDeals(filters);
         }}
       />
     </div>
