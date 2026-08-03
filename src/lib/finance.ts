@@ -7,7 +7,7 @@ import {
   type FinanceEntryRow,
   type FinanceKind,
 } from "@/db/schema";
-import { listDeals, type DealWithRelations } from "@/lib/deals";
+import { isDatedSold, listDeals, type DealWithRelations } from "@/lib/deals";
 import { calcProfit, roundMoney } from "@/lib/format";
 import { isGoogleSheetsConfigured } from "@/lib/googleSheets";
 
@@ -109,7 +109,7 @@ export type FinanceSummary = {
 };
 
 function toSoldRow(d: DealWithRelations): SoldDealRow | null {
-  if (d.status !== "sold" || !d.soldAt) return null;
+  if (!isDatedSold(d)) return null;
   return {
     id: d.id,
     name: d.name,
@@ -132,15 +132,16 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   ]);
 
   const sold = deals.filter((d) => d.status === "sold");
+  const realizedSold = sold.filter(isDatedSold);
   const inStock = deals.filter((d) => d.status === "in_stock");
 
-  const soldDeals = sold
+  const soldDeals = realizedSold
     .map(toSoldRow)
     .filter((r): r is SoldDealRow => r !== null)
     .sort((a, b) => b.soldAt.localeCompare(a.soldAt));
 
-  const salesRevenue = sold.reduce((sum, d) => sum + d.price, 0);
-  const soldCost = sold.reduce((sum, d) => sum + d.cost, 0);
+  const salesRevenue = realizedSold.reduce((sum, d) => sum + d.price, 0);
+  const soldCost = realizedSold.reduce((sum, d) => sum + d.cost, 0);
   const dealProfit = salesRevenue - soldCost;
   const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
   const purchaseSpend = deals.reduce((sum, d) => sum + d.cost, 0);
@@ -165,10 +166,10 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       dealId: d.id,
     });
   }
-  for (const d of sold) {
+  for (const d of realizedSold) {
     activity.push({
       id: `sale-${d.id}`,
-      date: (d.soldAt ?? d.updatedAt).slice(0, 10),
+      date: d.soldAt.slice(0, 10),
       kind: "in",
       source: "deal_sale",
       label: `Sold ${d.name} (${d.size})`,
@@ -225,7 +226,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     manualIn: roundMoney(manualIn),
     manualOut: roundMoney(manualOut),
     netCash: roundMoney(salesRevenue + manualIn - purchaseSpend - manualOut),
-    soldCount: sold.length,
+    soldCount: realizedSold.length,
     inStockCount: inStock.length,
     soldDeals,
     activity: activity.slice(0, 40),

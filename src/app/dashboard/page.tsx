@@ -6,7 +6,7 @@ import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import type { DashboardStats } from "@/lib/deals";
-import { formatMoney, photoUrl, profitToneClass } from "@/lib/format";
+import { calcProfit, formatMoney, photoUrl, profitToneClass } from "@/lib/format";
 import { getJson } from "@/lib/http";
 
 export default function DashboardPage() {
@@ -83,7 +83,7 @@ export default function DashboardPage() {
               label="Realized profit"
               value={formatMoney(stats.realizedProfit)}
               valueClassName={profitToneClass(stats.realizedProfit)}
-              hint={`${stats.soldCount} sold`}
+              hint="Sales − cost of sold"
             />
             <MetricTile
               label="Avg ROI (sold)"
@@ -262,7 +262,7 @@ export default function DashboardPage() {
             ) : (
               <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.recentlySold.map((deal) => {
-                  const soldProfit = deal.price - deal.cost;
+                  const soldProfit = calcProfit(deal.price, deal.cost);
                   return (
                     <li key={deal.id}>
                       <Link
