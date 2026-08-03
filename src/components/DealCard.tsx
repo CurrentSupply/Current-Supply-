@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -99,16 +100,18 @@ export function DealCard({ deal, onMarkSold, onQuickEdit }: Props) {
           {onQuickEdit ? (
             <button
               type="button"
-              className="btn btn-ghost flex-1 rounded-none"
+              aria-label="Edit"
+              title="Edit"
+              className="inline-flex items-center justify-center px-4 text-[var(--muted)] transition hover:bg-[#f3f3f3] hover:text-[var(--ink)]"
               onClick={() => onQuickEdit(deal)}
             >
-              Edit
+              <PencilIcon className="h-4 w-4" />
             </button>
           ) : null}
           <button
             type="button"
-            className={`btn btn-secondary flex-1 rounded-none border-0 border-l border-[var(--line)] ${
-              onQuickEdit ? "" : "w-full border-l-0"
+            className={`btn btn-secondary flex-1 rounded-none border-0 ${
+              onQuickEdit ? "border-l border-[var(--line)]" : ""
             }`}
             onClick={() => onMarkSold(deal)}
           >
@@ -116,13 +119,15 @@ export function DealCard({ deal, onMarkSold, onQuickEdit }: Props) {
           </button>
         </div>
       ) : onQuickEdit ? (
-        <div className="border-t border-[var(--line)] px-4 py-3">
+        <div className="flex justify-end border-t border-[var(--line)] px-3 py-2">
           <button
             type="button"
-            className="btn btn-ghost w-full"
+            aria-label="Edit"
+            title="Edit"
+            className="inline-flex items-center justify-center p-2 text-[var(--muted)] transition hover:text-[var(--ink)]"
             onClick={() => onQuickEdit(deal)}
           >
-            Edit
+            <PencilIcon className="h-4 w-4" />
           </button>
         </div>
       ) : null}
