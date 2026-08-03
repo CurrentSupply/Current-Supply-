@@ -89,6 +89,21 @@ export function searchParamsHaveFilters(searchParams: URLSearchParams): boolean 
   );
 }
 
+/** True when filters (not sort alone) narrow the inventory list. */
+export function inventoryFiltersAreRestrictive(
+  filters: InventoryFilterState,
+): boolean {
+  return (
+    filters.q !== "" ||
+    filters.status !== "all" ||
+    filters.owner !== "all" ||
+    filters.categoryId !== "all" ||
+    filters.size !== "" ||
+    filters.purchasedFrom !== "" ||
+    filters.purchasedTo !== ""
+  );
+}
+
 export function filtersToSearchParams(
   filters: InventoryFilterState,
 ): URLSearchParams {

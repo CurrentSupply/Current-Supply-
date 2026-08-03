@@ -109,9 +109,9 @@ function OverlayTool() {
   return (
     <div className="space-y-6">
       <PageHeader
-        kicker="Listing Stamp"
-        title="Price & size on photos"
-        subtitle="Stamps size and price onto a deal photo for listings. Layout is a clean default for now — we can match your reference image later."
+        kicker="Stamp"
+        title="Stamp a listing photo"
+        subtitle="Add size and price to a deal photo, then download a listing-ready image."
       />
 
       {loading ? (
@@ -194,7 +194,7 @@ function OverlayTool() {
               disabled={busy || !previewPhoto}
               onClick={() => void stamp()}
             >
-              {busy ? "Stamping…" : "Stamp & download preview"}
+              {busy ? "Stamping…" : "Stamp & download"}
             </button>
             {resultUrl ? (
               <a

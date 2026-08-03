@@ -288,7 +288,7 @@ export function DealForm({
                   disabled={findBusy || busy || !values.name.trim()}
                   onClick={() => void findPhotoFromName()}
                 >
-                  {findBusy ? "Finding…" : "Replace cover from name"}
+                  {findBusy ? "Finding…" : "Replace cover"}
                 </button>
                 {coverFile ? (
                   <button
@@ -325,7 +325,7 @@ export function DealForm({
                   disabled={findBusy || busy || !values.name.trim()}
                   onClick={() => void findPhotoFromName()}
                 >
-                  {findBusy ? "Finding…" : "Find cover from name"}
+                  {findBusy ? "Finding…" : "Find cover"}
                 </button>
               </div>
             </div>
@@ -347,8 +347,9 @@ export function DealForm({
             required
           />
           <p className="text-xs text-[var(--muted)]">
-            Tip: use a clear product name (brand, model, colorway). Finding a
-            cover from the name replaces the previous cover on save.
+            Tip: use a clear product name (brand, model, colorway), then Find
+            cover for an HD full-shoe photo. That replaces the previous cover
+            on save.
           </p>
         </div>
         <div className="field">

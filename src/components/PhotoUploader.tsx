@@ -122,8 +122,8 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
             {busy
               ? "Finding…"
               : photos.length > 0
-                ? "Replace cover from name"
-                : "Find cover from name"}
+                ? "Replace cover"
+                : "Find cover"}
           </button>
           <button
             type="button"
@@ -166,8 +166,8 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
         }}
       >
         <p className="text-sm text-[var(--muted)]">
-          Drag & drop images here, or use Add photos. Cover can be replaced from
-          the item name. JPG, PNG, WebP, GIF up to 8MB.
+          Drag & drop images here, or use Add photos. Find cover uses the item
+          name and replaces the previous cover. JPG, PNG, WebP, GIF up to 8MB.
         </p>
       </div>
 

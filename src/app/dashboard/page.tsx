@@ -36,8 +36,8 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         kicker="Analytics"
-        title="Inventory pulse"
-        subtitle="What’s available, what’s sold, and where profit is coming from."
+        title="Analytics"
+        subtitle="Stock, sales, and capital at a glance."
       />
 
       {empty ? (
@@ -54,9 +54,9 @@ export default function DashboardPage() {
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile
-              label="Available"
+              label="In stock"
               value={String(stats.inStockCount)}
-              hint="In stock right now"
+              hint="Open deals right now"
             />
             <MetricTile
               label="Sold"
@@ -193,7 +193,7 @@ export default function DashboardPage() {
                       <div>
                         <p className="font-medium">{row.name}</p>
                         <p className="text-[var(--muted)]">
-                          {row.inStock} available · {row.sold} sold
+                          {row.inStock} in stock · {row.sold} sold
                         </p>
                       </div>
                       <p className={profitToneClass(row.profit)}>
@@ -216,7 +216,7 @@ export default function DashboardPage() {
                     <div>
                       <p className="font-medium">{row.name}</p>
                       <p className="text-[var(--muted)]">
-                        {row.inStock} available · {row.sold} sold
+                        {row.inStock} in stock · {row.sold} sold
                       </p>
                     </div>
                     <p className={profitToneClass(row.profit)}>
@@ -237,7 +237,7 @@ export default function DashboardPage() {
                   >
                     <p className="font-medium">{row.name}</p>
                     <p className="text-[var(--muted)]">
-                      {row.inStock} available · {row.sold} sold
+                      {row.inStock} in stock · {row.sold} sold
                     </p>
                   </li>
                 ))}
