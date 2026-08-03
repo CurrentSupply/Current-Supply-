@@ -8,15 +8,19 @@ import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import { PhotoUploader } from "@/components/PhotoUploader";
-import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { QuickEditDialog } from "@/components/QuickEditDialog";
+import { BackLink, StatusBadge } from "@/components/ui";
+import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner, type Category } from "@/db/schema";
 import {
   deleteDeal,
   fetchDeal,
   markDealInStock,
   markDealSold,
+  patchDealFields,
   updateDealSoldAt,
 } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
+import { getJson } from "@/lib/http";
 import {
   calcProfit,
   calcRoi,
@@ -31,16 +35,22 @@ export default function DealDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [deal, setDeal] = useState<DealWithRelations | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [soldDateError, setSoldDateError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchDeal(params.id);
+      const [data, cats] = await Promise.all([
+        fetchDeal(params.id),
+        getJson<Category[]>("/api/categories", "Failed to load categories."),
+      ]);
       setDeal(data);
+      setCategories(cats);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deal not found.");
@@ -61,7 +71,7 @@ export default function DealDetailPage() {
         title={error}
         action={
           <Link href="/inventory" className="btn btn-secondary">
-            ← Back to inventory
+            Back to Inventory
           </Link>
         }
       />
@@ -81,18 +91,11 @@ export default function DealDetailPage() {
   const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       <PageHeader
         title={deal.name}
         subtitle={`Size ${deal.size}${deal.category ? ` · ${deal.category.name}` : ""} · ${ownerLabel}${deal.platform ? ` · ${deal.platform}` : ""}`}
-        back={
-          <Link
-            href="/inventory"
-            className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
-          >
-            ← Back to inventory
-          </Link>
-        }
+        back={<BackLink href="/inventory">Back to Inventory</BackLink>}
         actions={
           <>
             {deal.status === "in_stock" ? (
@@ -101,7 +104,7 @@ export default function DealDetailPage() {
                 className="btn btn-primary"
                 onClick={() => setMarkSoldOpen(true)}
               >
-                Mark sold
+                Mark Sold
               </button>
             ) : (
               <button
@@ -114,25 +117,27 @@ export default function DealDetailPage() {
                     await load();
                   } catch (err) {
                     setActionError(
-                      err instanceof Error
-                        ? err.message
-                        : "Could not mark in stock.",
+                      err instanceof Error ? err.message : "Could not mark in stock.",
                     );
                   }
                 }}
               >
-                Mark in stock
+                Mark In Stock
               </button>
             )}
-            <Link href={`/inventory/${deal.id}/edit`} className="btn btn-secondary">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setQuickEditOpen(true)}
+            >
               Edit
-            </Link>
+            </button>
             <Link href={`/overlay?dealId=${deal.id}`} className="btn btn-secondary">
               Stamp
             </Link>
             <button
               type="button"
-              className="btn btn-danger"
+              className="btn btn-outline text-[var(--color-error)]"
               onClick={() => setConfirmDelete(true)}
             >
               Delete
@@ -141,11 +146,11 @@ export default function DealDetailPage() {
         }
       />
 
-      {actionError ? <PageError message={actionError} /> : null}
+      {actionError && <PageError message={actionError} />}
 
-      <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="surface overflow-hidden rounded-none">
-          <div className="aspect-[4/3] bg-[#efefef]">
+      <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="card overflow-hidden">
+          <div className="aspect-[4/3] bg-[var(--bg-secondary)]">
             {deal.coverPhoto ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -154,76 +159,69 @@ export default function DealDetailPage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full items-center justify-center text-[var(--muted)]">
+              <div className="flex h-full items-center justify-center text-[var(--text-tertiary)]">
                 No cover photo
               </div>
             )}
           </div>
         </div>
 
-        <div className="surface rounded-none p-5">
-          <span
-            className={`badge ${deal.status === "sold" ? "badge-sold" : "badge-stock"}`}
-          >
-            {deal.status === "sold" ? "Sold" : "In stock"}
-          </span>
-          <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div className="card p-6">
+          <StatusBadge status={deal.status === "sold" ? "sold" : "in_stock"} />
+
+          <dl className="mt-5 grid grid-cols-2 gap-4">
             <div>
-              <dt className="text-[var(--muted)]">Owner</dt>
-              <dd className="text-lg font-semibold">{ownerLabel}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Owner</dt>
+              <dd className="mt-1 text-lg font-semibold">{ownerLabel}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Condition</dt>
-              <dd className="text-lg font-semibold">
+              <dt className="text-sm text-[var(--text-secondary)]">Condition</dt>
+              <dd className="mt-1 text-lg font-semibold">
                 {DEAL_CONDITION_LABELS[deal.condition]}
               </dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Box</dt>
-              <dd className="font-medium">{deal.hasBox ? "Yes" : "No"}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Box</dt>
+              <dd className="mt-1 font-medium">{deal.hasBox ? "Yes" : "No"}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Insoles</dt>
-              <dd className="font-medium">{deal.hasInsoles ? "Yes" : "No"}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Insoles</dt>
+              <dd className="mt-1 font-medium">{deal.hasInsoles ? "Yes" : "No"}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Cost</dt>
-              <dd className="text-lg font-semibold">{formatMoney(deal.cost)}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Cost</dt>
+              <dd className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(deal.cost)}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Price</dt>
-              <dd className="text-lg font-semibold">{formatMoney(deal.price)}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Price</dt>
+              <dd className="mt-1 text-lg font-semibold tabular-nums">{formatMoney(deal.price)}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Profit</dt>
-              <dd className={`text-lg font-semibold ${profitToneClass(profit)}`}>
+              <dt className="text-sm text-[var(--text-secondary)]">Profit</dt>
+              <dd className={`mt-1 text-lg font-semibold tabular-nums ${profitToneClass(profit)}`}>
                 {formatMoney(profit)}
               </dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">ROI</dt>
-              <dd
-                className={`text-lg font-semibold ${
-                  roi === null ? "" : profitToneClass(roi)
-                }`}
-              >
+              <dt className="text-sm text-[var(--text-secondary)]">ROI</dt>
+              <dd className={`mt-1 text-lg font-semibold tabular-nums ${roi === null ? "" : profitToneClass(roi)}`}>
                 {formatRoi(deal.price, deal.cost)}
               </dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">Purchased</dt>
-              <dd className="font-medium">{deal.purchasedAt.slice(0, 10)}</dd>
+              <dt className="text-sm text-[var(--text-secondary)]">Purchased</dt>
+              <dd className="mt-1 font-medium">{deal.purchasedAt.slice(0, 10)}</dd>
             </div>
             <div>
-              <dt className="text-[var(--muted)]">
-                {deal.status === "sold" ? "Sold" : "Days held"}
+              <dt className="text-sm text-[var(--text-secondary)]">
+                {deal.status === "sold" ? "Sold" : "Days Held"}
               </dt>
-              <dd className="font-medium">
+              <dd className="mt-1 font-medium">
                 {deal.status === "sold" ? (
                   <div>
                     <input
                       type="date"
-                      className="mt-0.5 w-full max-w-full min-w-0 border border-[var(--line)] bg-white px-2 py-1.5 text-base font-medium text-[var(--ink)]"
+                      className="w-full rounded-lg border border-[var(--border-primary)] bg-[var(--bg)] px-3 py-2 text-sm"
                       value={deal.soldAt ? deal.soldAt.slice(0, 10) : ""}
                       onChange={async (e) => {
                         const soldAt = e.target.value;
@@ -234,19 +232,15 @@ export default function DealDetailPage() {
                           await load();
                         } catch (err) {
                           setSoldDateError(
-                            err instanceof Error
-                              ? err.message
-                              : "Could not update sold date.",
+                            err instanceof Error ? err.message : "Could not update sold date.",
                           );
                         }
                       }}
                       aria-label="Sold date"
                     />
-                    {soldDateError ? (
-                      <p className="mt-1 text-xs text-[var(--danger)]">
-                        {soldDateError}
-                      </p>
-                    ) : null}
+                    {soldDateError && (
+                      <p className="mt-1 text-xs text-[var(--color-error)]">{soldDateError}</p>
+                    )}
                   </div>
                 ) : (
                   `${held} days`
@@ -254,12 +248,13 @@ export default function DealDetailPage() {
               </dd>
             </div>
           </dl>
-          {deal.notes ? (
-            <div className="mt-4">
-              <h3 className="text-sm font-semibold text-[var(--muted)]">Notes</h3>
-              <p className="mt-1 whitespace-pre-wrap">{deal.notes}</p>
+
+          {deal.notes && (
+            <div className="mt-5 border-t border-[var(--border-secondary)] pt-5">
+              <h3 className="text-sm font-medium text-[var(--text-secondary)]">Notes</h3>
+              <p className="mt-2 whitespace-pre-wrap text-sm">{deal.notes}</p>
             </div>
-          ) : null}
+          )}
         </div>
       </div>
 
@@ -282,6 +277,17 @@ export default function DealDetailPage() {
         }}
       />
 
+      <QuickEditDialog
+        open={quickEditOpen}
+        deal={deal}
+        categories={categories}
+        onClose={() => setQuickEditOpen(false)}
+        onSave={async (fields) => {
+          await patchDealFields(deal.id, fields);
+          await load();
+        }}
+      />
+
       <ConfirmDialog
         open={confirmDelete}
         title="Delete this deal?"
@@ -296,9 +302,7 @@ export default function DealDetailPage() {
             router.push("/inventory");
           } catch (err) {
             setConfirmDelete(false);
-            setActionError(
-              err instanceof Error ? err.message : "Could not delete deal.",
-            );
+            setActionError(err instanceof Error ? err.message : "Could not delete deal.");
           }
         }}
       />

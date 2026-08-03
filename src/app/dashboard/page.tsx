@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
+import { Section } from "@/components/ui";
 import type { DashboardStats } from "@/lib/deals";
 import { calcProfit, formatMoney, photoUrl, profitToneClass } from "@/lib/format";
 import { getJson } from "@/lib/http";
@@ -27,16 +28,13 @@ export default function DashboardPage() {
   }
 
   const empty = stats.inStockCount + stats.soldCount === 0;
-  const maxMonthProfit = Math.max(
-    1,
-    ...stats.byMonth.map((m) => Math.abs(m.profit)),
-  );
+  const maxMonthProfit = Math.max(1, ...stats.byMonth.map((m) => Math.abs(m.profit)));
 
   return (
     <div className="space-y-6">
       <PageHeader
         kicker="Analytics"
-        title="Analytics"
+        title="Dashboard"
         subtitle="Stock, sales, and capital at a glance."
       />
 
@@ -46,128 +44,76 @@ export default function DashboardPage() {
           description="Add inventory to unlock stock and sales metrics."
           action={
             <Link href="/inventory/new" className="btn btn-primary">
-              Add deal
+              Add Deal
             </Link>
           }
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <MetricTile label="In Stock" value={String(stats.inStockCount)} hint="Open deals right now" />
+            <MetricTile label="Sold" value={String(stats.soldCount)} hint="Closed deals" />
+            <MetricTile label="Inventory Cost" value={formatMoney(stats.inventoryCost)} hint="Cash tied up in stock" />
+            <MetricTile label="List Value" value={formatMoney(stats.inventoryValue)} hint="If everything sold at list" />
             <MetricTile
-              label="In stock"
-              value={String(stats.inStockCount)}
-              hint="Open deals right now"
-            />
-            <MetricTile
-              label="Sold"
-              value={String(stats.soldCount)}
-              hint="Closed deals"
-            />
-            <MetricTile
-              label="Inventory cost"
-              value={formatMoney(stats.inventoryCost)}
-              hint="Cash tied up in stock"
-            />
-            <MetricTile
-              label="List value"
-              value={formatMoney(stats.inventoryValue)}
-              hint="If everything sold at list"
-            />
-            <MetricTile
-              label="Projected profit"
+              label="Projected Profit"
               value={formatMoney(stats.projectedProfit)}
               valueClassName={profitToneClass(stats.projectedProfit)}
               hint="Open stock at list price"
             />
             <MetricTile
-              label="Realized profit"
+              label="Realized Profit"
               value={formatMoney(stats.realizedProfit)}
               valueClassName={profitToneClass(stats.realizedProfit)}
               hint="Sales − cost of sold"
             />
             <MetricTile
-              label="Avg ROI (sold)"
-              value={
-                stats.avgRoiSold === null
-                  ? "—"
-                  : `${stats.avgRoiSold > 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`
-              }
-              valueClassName={
-                stats.avgRoiSold === null
-                  ? undefined
-                  : profitToneClass(stats.avgRoiSold)
-              }
+              label="Avg ROI (Sold)"
+              value={stats.avgRoiSold === null ? "—" : `${stats.avgRoiSold > 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`}
+              valueClassName={stats.avgRoiSold === null ? undefined : profitToneClass(stats.avgRoiSold)}
             />
             <MetricTile
-              label="Avg days held"
-              value={
-                stats.avgDaysHeldSold === null
-                  ? "—"
-                  : `${stats.avgDaysHeldSold.toFixed(0)} days`
-              }
+              label="Avg Days Held"
+              value={stats.avgDaysHeldSold === null ? "—" : `${stats.avgDaysHeldSold.toFixed(0)} days`}
             />
+            <MetricTile label="With Box" value={String(stats.withBoxCount)} hint="Across all deals" />
+            <MetricTile label="With Insoles" value={String(stats.withInsolesCount)} hint="Across all deals" />
             <MetricTile
-              label="With box"
-              value={String(stats.withBoxCount)}
-              hint="Across all deals"
-            />
-            <MetricTile
-              label="With insoles"
-              value={String(stats.withInsolesCount)}
-              hint="Across all deals"
-            />
-            <MetricTile
-              label="Best category"
+              label="Best Category"
               value={stats.bestCategory?.name ?? "—"}
-              hint={
-                stats.bestCategory
-                  ? formatMoney(stats.bestCategory.profit)
-                  : "No sold profit yet"
-              }
-              hintClassName={
-                stats.bestCategory
-                  ? profitToneClass(stats.bestCategory.profit)
-                  : "text-[var(--muted)]"
-              }
+              hint={stats.bestCategory ? formatMoney(stats.bestCategory.profit) : "No sold profit yet"}
+              hintClassName={stats.bestCategory ? profitToneClass(stats.bestCategory.profit) : "text-[var(--text-secondary)]"}
             />
             <MetricTile
-              label="Sell-through"
+              label="Sell-Through"
               value={
                 stats.inStockCount + stats.soldCount === 0
                   ? "—"
-                  : `${Math.round(
-                      (stats.soldCount /
-                        (stats.inStockCount + stats.soldCount)) *
-                        100,
-                    )}%`
+                  : `${Math.round((stats.soldCount / (stats.inStockCount + stats.soldCount)) * 100)}%`
               }
               hint="Sold ÷ total deals"
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">Profit by month</h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Section title="Profit by Month">
               {stats.byMonth.length === 0 ? (
-                <p className="mt-4 text-sm text-[var(--muted)]">No sales yet.</p>
+                <p className="text-sm text-[var(--text-secondary)]">No sales yet.</p>
               ) : (
-                <ul className="mt-4 space-y-3">
+                <ul className="space-y-4">
                   {stats.byMonth.map((row) => (
                     <li key={row.month}>
-                      <div className="mb-1 flex justify-between text-sm">
-                        <span>{row.month}</span>
+                      <div className="mb-2 flex justify-between text-sm">
+                        <span className="font-medium">{row.month}</span>
                         <span className={profitToneClass(row.profit)}>
                           {row.sold} sold · {formatMoney(row.profit)}
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-none bg-[var(--bg-deep)]">
+                      <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-secondary)]">
                         <div
-                          className="h-full rounded-none bg-[var(--accent)]"
+                          className="h-full rounded-full bg-[var(--text-primary)] transition-all"
                           style={{
-                            width: `${Math.max(
-                              8,
-                              (Math.abs(row.profit) / maxMonthProfit) * 100,
-                            )}%`,
+                            width: `${Math.max(8, (Math.abs(row.profit) / maxMonthProfit) * 100)}%`,
                           }}
                         />
                       </div>
@@ -175,117 +121,93 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By category</h2>
+            <Section title="By Category">
               {stats.byCategory.length === 0 ? (
-                <p className="mt-4 text-sm text-[var(--muted)]">
-                  No categories yet.
-                </p>
+                <p className="text-sm text-[var(--text-secondary)]">No categories yet.</p>
               ) : (
-                <ul className="mt-4 divide-y divide-[var(--line)]">
+                <ul className="divide-y divide-[var(--border-secondary)]">
                   {stats.byCategory.map((row) => (
-                    <li
-                      key={row.name}
-                      className="flex items-center justify-between py-3 text-sm"
-                    >
+                    <li key={row.name} className="flex items-center justify-between py-3 text-sm">
                       <div>
                         <p className="font-medium">{row.name}</p>
-                        <p className="text-[var(--muted)]">
+                        <p className="text-[var(--text-secondary)]">
                           {row.inStock} in stock · {row.sold} sold
                         </p>
                       </div>
-                      <p className={profitToneClass(row.profit)}>
-                        {formatMoney(row.profit)}
-                      </p>
+                      <p className={profitToneClass(row.profit)}>{formatMoney(row.profit)}</p>
                     </li>
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By owner</h2>
-              <ul className="mt-4 divide-y divide-[var(--line)]">
+            <Section title="By Owner">
+              <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byOwner.map((row) => (
-                  <li
-                    key={row.name}
-                    className="flex items-center justify-between py-3 text-sm"
-                  >
+                  <li key={row.name} className="flex items-center justify-between py-3 text-sm">
                     <div>
                       <p className="font-medium">{row.name}</p>
-                      <p className="text-[var(--muted)]">
+                      <p className="text-[var(--text-secondary)]">
                         {row.inStock} in stock · {row.sold} sold
                       </p>
                     </div>
-                    <p className={profitToneClass(row.profit)}>
-                      {formatMoney(row.profit)}
-                    </p>
+                    <p className={profitToneClass(row.profit)}>{formatMoney(row.profit)}</p>
                   </li>
                 ))}
               </ul>
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By condition</h2>
-              <ul className="mt-4 divide-y divide-[var(--line)]">
+            <Section title="By Condition">
+              <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byCondition.map((row) => (
-                  <li
-                    key={row.name}
-                    className="flex items-center justify-between py-3 text-sm"
-                  >
+                  <li key={row.name} className="flex items-center justify-between py-3 text-sm">
                     <p className="font-medium">{row.name}</p>
-                    <p className="text-[var(--muted)]">
+                    <p className="text-[var(--text-secondary)]">
                       {row.inStock} in stock · {row.sold} sold
                     </p>
                   </li>
                 ))}
               </ul>
-            </section>
+            </Section>
           </div>
 
-          <section className="surface rounded-none p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Recently sold</h2>
-              <Link
-                href="/inventory?status=sold"
-                className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4"
-              >
-                View sold
+          <Section
+            title="Recently Sold"
+            action={
+              <Link href="/inventory?status=sold" className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+                View all sold →
               </Link>
-            </div>
+            }
+          >
             {stats.recentlySold.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--muted)]">
-                No sales recorded yet.
-              </p>
+              <p className="text-sm text-[var(--text-secondary)]">No sales recorded yet.</p>
             ) : (
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.recentlySold.map((deal) => {
                   const soldProfit = calcProfit(deal.price, deal.cost);
                   return (
                     <li key={deal.id}>
                       <Link
                         href={`/inventory/${deal.id}`}
-                        className="flex gap-3 rounded-none border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
+                        className="flex gap-3 rounded-xl border border-[var(--border-secondary)] bg-[var(--bg-elevated)] p-3 transition-all hover:border-[var(--border-primary)] hover:shadow-sm"
                       >
-                        <div className="h-16 w-16 overflow-hidden rounded-none bg-[var(--bg-deep)]">
-                          {deal.coverPhoto ? (
+                        <div className="h-14 w-14 overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
+                          {deal.coverPhoto && (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={photoUrl(deal.coverPhoto.filename)}
                               alt=""
                               className="h-full w-full object-cover"
                             />
-                          ) : null}
+                          )}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{deal.name}</p>
-                          <p className="text-sm text-[var(--muted)]">
+                          <p className="text-sm text-[var(--text-secondary)]">
                             {deal.soldAt?.slice(0, 10)} ·{" "}
-                            <span className={profitToneClass(soldProfit)}>
-                              {formatMoney(soldProfit)}
-                            </span>
+                            <span className={profitToneClass(soldProfit)}>{formatMoney(soldProfit)}</span>
                           </p>
                         </div>
                       </Link>
@@ -294,7 +216,7 @@ export default function DashboardPage() {
                 })}
               </ul>
             )}
-          </section>
+          </Section>
         </>
       )}
     </div>

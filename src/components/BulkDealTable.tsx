@@ -10,10 +10,7 @@ import {
   type DealCondition,
   type DealOwner,
 } from "@/db/schema";
-import {
-  createDealsBulk,
-  type SerializedDealPayload,
-} from "@/lib/dealClient";
+import { createDealsBulk, type SerializedDealPayload } from "@/lib/dealClient";
 import { toInputDate } from "@/lib/format";
 
 type BulkRow = {
@@ -55,27 +52,16 @@ function emptyRow(defaults?: Partial<BulkRow>): BulkRow {
 }
 
 function isBlankRow(row: BulkRow): boolean {
-  return (
-    !row.name.trim() &&
-    !row.size.trim() &&
-    !row.cost.trim() &&
-    !row.price.trim()
-  );
+  return !row.name.trim() && !row.size.trim() && !row.cost.trim() && !row.price.trim();
 }
 
 function validateRow(row: BulkRow): string | null {
   if (!row.name.trim()) return "Name is required.";
   if (!row.size.trim()) return "Size is required.";
-  if (!row.cost.trim() || !Number.isFinite(Number(row.cost))) {
-    return "Cost is required.";
-  }
-  if (!row.price.trim() || !Number.isFinite(Number(row.price))) {
-    return "Price is required.";
-  }
+  if (!row.cost.trim() || !Number.isFinite(Number(row.cost))) return "Cost is required.";
+  if (!row.price.trim() || !Number.isFinite(Number(row.price))) return "Price is required.";
   if (!row.purchasedAt) return "Purchase date is required.";
-  if (!row.categoryId || Number(row.categoryId) <= 0) {
-    return "Category is required.";
-  }
+  if (!row.categoryId || Number(row.categoryId) <= 0) return "Category is required.";
   return null;
 }
 
@@ -111,11 +97,7 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
     [rows],
   );
 
-  function updateRow<K extends keyof BulkRow>(
-    key: string,
-    field: K,
-    value: BulkRow[K],
-  ) {
+  function updateRow<K extends keyof BulkRow>(key: string, field: K, value: BulkRow[K]) {
     setRows((prev) =>
       prev.map((row) => (row.key === key ? { ...row, [field]: value } : row)),
     );
@@ -189,9 +171,8 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
           return;
         }
         setFormError(
-          `Saved ${result.created.length}, but ${result.failed.length} failed. Fix remaining rows or open inventory.`,
+          `Saved ${result.created.length}, but ${result.failed.length} failed.`,
         );
-        // Drop successfully created rows so retries only retry failures.
         const failedKeys = new Set(Object.keys(nextErrors));
         setRows((prev) => prev.filter((row) => failedKeys.has(row.key)));
         return;
@@ -206,33 +187,28 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-[var(--muted)]">
-        Enter deals as rows — no photo upload here. Covers are filled from each
-        title when possible; you can replace them later on the deal page. Blank
-        rows are skipped. Status is always in stock.
+      <p className="text-sm text-[var(--text-secondary)]">
+        Enter deals as rows — no photo upload here. Covers are filled from each title when possible.
+        Blank rows are skipped. Status is always in stock.
       </p>
 
-      {formError ? (
-        <p className="border border-black bg-[#f3f3f3] p-3 text-sm text-[var(--danger)]">
-          {formError}
-        </p>
-      ) : null}
+      {formError && (
+        <div className="alert alert-error">{formError}</div>
+      )}
 
-      <div className="-mx-1 overflow-x-auto">
-        <table className="min-w-[960px] w-full border-collapse text-left text-sm">
+      <div className="table-container overflow-x-auto">
+        <table className="table min-w-[960px]">
           <thead>
-            <tr className="border-b border-black text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
-              <th className="px-2 py-2">Name</th>
-              <th className="px-2 py-2">Size</th>
-              <th className="px-2 py-2">Cost</th>
-              <th className="px-2 py-2">Price</th>
-              <th className="px-2 py-2">Category</th>
-              <th className="px-2 py-2">Owner</th>
-              <th className="px-2 py-2">Condition</th>
-              <th className="px-2 py-2">Purchased</th>
-              <th className="px-2 py-2 w-12">
-                <span className="sr-only">Remove</span>
-              </th>
+            <tr>
+              <th>Name</th>
+              <th>Size</th>
+              <th>Cost</th>
+              <th>Price</th>
+              <th>Category</th>
+              <th>Owner</th>
+              <th>Condition</th>
+              <th>Purchased</th>
+              <th className="w-12"><span className="sr-only">Remove</span></th>
             </tr>
           </thead>
           <tbody>
@@ -241,11 +217,9 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
               return (
                 <tr
                   key={row.key}
-                  className={`border-b border-[var(--line)] align-top ${
-                    error ? "bg-[#fff4f4]" : ""
-                  }`}
+                  className={error ? "bg-[var(--color-error-subtle)]" : ""}
                 >
-                  <td className="px-2 py-2">
+                  <td className="align-top">
                     <div className="field">
                       <label className="sr-only" htmlFor={`${row.key}-name`}>
                         Name {index + 1}
@@ -253,18 +227,16 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                       <input
                         id={`${row.key}-name`}
                         value={row.name}
-                        onChange={(e) =>
-                          updateRow(row.key, "name", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "name", e.target.value)}
                         placeholder="Jordan 1…"
                         disabled={busy}
                       />
                     </div>
-                    {error ? (
-                      <p className="mt-1 text-xs text-[var(--danger)]">{error}</p>
-                    ) : null}
+                    {error && (
+                      <p className="mt-1 text-xs text-[var(--color-error)]">{error}</p>
+                    )}
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
                       <label className="sr-only" htmlFor={`${row.key}-size`}>
                         Size {index + 1}
@@ -272,15 +244,13 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                       <input
                         id={`${row.key}-size`}
                         value={row.size}
-                        onChange={(e) =>
-                          updateRow(row.key, "size", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "size", e.target.value)}
                         placeholder="10.5"
                         disabled={busy}
                       />
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
                       <label className="sr-only" htmlFor={`${row.key}-cost`}>
                         Cost {index + 1}
@@ -291,14 +261,12 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                         min="0"
                         step="0.01"
                         value={row.cost}
-                        onChange={(e) =>
-                          updateRow(row.key, "cost", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "cost", e.target.value)}
                         disabled={busy}
                       />
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
                       <label className="sr-only" htmlFor={`${row.key}-price`}>
                         Price {index + 1}
@@ -309,39 +277,30 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                         min="0"
                         step="0.01"
                         value={row.price}
-                        onChange={(e) =>
-                          updateRow(row.key, "price", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "price", e.target.value)}
                         disabled={busy}
                       />
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
-                      <label
-                        className="sr-only"
-                        htmlFor={`${row.key}-category`}
-                      >
+                      <label className="sr-only" htmlFor={`${row.key}-category`}>
                         Category {index + 1}
                       </label>
                       <select
                         id={`${row.key}-category`}
                         value={row.categoryId}
-                        onChange={(e) =>
-                          updateRow(row.key, "categoryId", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "categoryId", e.target.value)}
                         disabled={busy}
                       >
                         <option value="">Select</option>
                         {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
+                          <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                       </select>
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
                       <label className="sr-only" htmlFor={`${row.key}-owner`}>
                         Owner {index + 1}
@@ -350,39 +309,26 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                         id={`${row.key}-owner`}
                         value={row.owner}
                         onChange={(e) =>
-                          updateRow(
-                            row.key,
-                            "owner",
-                            e.target.value as DealOwner,
-                          )
+                          updateRow(row.key, "owner", e.target.value as DealOwner)
                         }
                         disabled={busy}
                       >
                         {DEAL_OWNERS.map((owner) => (
-                          <option key={owner} value={owner}>
-                            {DEAL_OWNER_LABELS[owner]}
-                          </option>
+                          <option key={owner} value={owner}>{DEAL_OWNER_LABELS[owner]}</option>
                         ))}
                       </select>
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
-                      <label
-                        className="sr-only"
-                        htmlFor={`${row.key}-condition`}
-                      >
+                      <label className="sr-only" htmlFor={`${row.key}-condition`}>
                         Condition {index + 1}
                       </label>
                       <select
                         id={`${row.key}-condition`}
                         value={row.condition}
                         onChange={(e) =>
-                          updateRow(
-                            row.key,
-                            "condition",
-                            e.target.value as DealCondition,
-                          )
+                          updateRow(row.key, "condition", e.target.value as DealCondition)
                         }
                         disabled={busy}
                       >
@@ -394,29 +340,24 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
                       </select>
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <div className="field">
-                      <label
-                        className="sr-only"
-                        htmlFor={`${row.key}-purchased`}
-                      >
+                      <label className="sr-only" htmlFor={`${row.key}-purchased`}>
                         Purchased {index + 1}
                       </label>
                       <input
                         id={`${row.key}-purchased`}
                         type="date"
                         value={row.purchasedAt}
-                        onChange={(e) =>
-                          updateRow(row.key, "purchasedAt", e.target.value)
-                        }
+                        onChange={(e) => updateRow(row.key, "purchasedAt", e.target.value)}
                         disabled={busy}
                       />
                     </div>
                   </td>
-                  <td className="px-2 py-2">
+                  <td>
                     <button
                       type="button"
-                      className="btn btn-ghost px-2 py-2"
+                      className="btn btn-ghost btn-icon"
                       onClick={() => removeRow(row.key)}
                       disabled={busy || rows.length <= 1}
                       aria-label={`Remove row ${index + 1}`}
@@ -431,36 +372,34 @@ export function BulkDealTable({ categories, onSuccess, onCancel }: Props) {
         </table>
       </div>
 
-      <div className="sticky bottom-0 z-10 -mx-1 border-t border-[var(--line)] bg-[var(--bg)] px-1 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="sticky bottom-0 z-10 border-t border-[var(--border-secondary)] bg-[var(--bg)] py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <button
             type="button"
-            className="btn btn-secondary w-full sm:w-auto"
+            className="btn btn-secondary"
             onClick={addRow}
             disabled={busy}
           >
-            Add row
+            Add Row
           </button>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            {onCancel ? (
+          <div className="flex gap-3">
+            {onCancel && (
               <button
                 type="button"
-                className="btn btn-ghost w-full sm:w-auto"
+                className="btn btn-ghost"
                 onClick={onCancel}
                 disabled={busy}
               >
                 Cancel
               </button>
-            ) : null}
+            )}
             <button
               type="button"
-              className="btn btn-primary w-full sm:w-auto"
+              className="btn btn-primary"
               onClick={() => void onSave()}
               disabled={busy}
             >
-              {busy
-                ? "Saving…"
-                : `Save ${filledCount || 0} deal${filledCount === 1 ? "" : "s"}`}
+              {busy ? "Saving…" : `Save ${filledCount || 0} Deal${filledCount === 1 ? "" : "s"}`}
             </button>
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   photoUrl,
   profitToneClass,
 } from "@/lib/format";
+import { StatusBadge } from "@/components/ui";
 
 type Props = {
   deals: DealWithRelations[];
@@ -26,135 +27,121 @@ function initials(name: string): string {
 
 export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
   return (
-    <section className="surface overflow-hidden rounded-none">
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-black bg-white text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
-              <th className="sticky left-0 z-[1] bg-white px-3 py-2.5 font-bold sm:px-4">
-                Item
-              </th>
-              <th className="px-2 py-2.5 font-bold">Size</th>
-              <th className="px-2 py-2.5 font-bold">Status</th>
-              <th className="px-2 py-2.5 text-right font-bold">Cost</th>
-              <th className="px-2 py-2.5 text-right font-bold">Price</th>
-              <th className="px-2 py-2.5 text-right font-bold">Profit</th>
-              <th className="px-2 py-2.5 font-bold">Owner</th>
-              <th className="px-3 py-2.5 font-bold sm:px-4">
-                <span className="sr-only">Actions</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {deals.map((deal) => {
-              const profit = calcProfit(deal.price, deal.cost);
-              const cover = deal.coverPhoto;
-              const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
-              const isSold = deal.status === "sold";
+    <section className="table-container">
+      <table className="table">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 bg-[var(--bg-secondary)]">Item</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th className="text-right">Cost</th>
+            <th className="text-right">Price</th>
+            <th className="text-right">Profit</th>
+            <th>Owner</th>
+            <th><span className="sr-only">Actions</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          {deals.map((deal) => {
+            const profit = calcProfit(deal.price, deal.cost);
+            const cover = deal.coverPhoto;
+            const ownerLabel = DEAL_OWNER_LABELS[parseDealOwner(deal.owner)];
+            const isSold = deal.status === "sold";
 
-              return (
-                <tr
-                  key={deal.id}
-                  className="group border-b border-[var(--line)] last:border-b-0 hover:bg-[#fafafa]"
-                >
-                  <td className="sticky left-0 z-[1] bg-white px-3 py-2 group-hover:bg-[#fafafa] sm:px-4">
-                    <Link
-                      href={`/inventory/${deal.id}`}
-                      className="flex min-w-0 items-center gap-2.5"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-[var(--bg-deep)] text-[0.62rem] font-bold tracking-[0.06em] text-[var(--muted)]">
-                        {cover ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={photoUrl(cover.filename)}
-                            alt=""
-                            className={`h-full w-full object-cover ${
-                              isSold ? "opacity-55 grayscale" : ""
-                            }`}
-                          />
-                        ) : (
-                          <span aria-hidden>{initials(deal.name)}</span>
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-semibold leading-tight group-hover:underline group-hover:underline-offset-2">
-                          {deal.name}
-                        </p>
-                        <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
-                          {deal.category?.name ?? "Uncategorized"}
-                          {` · ${deal.condition}`}
-                          {deal.platform ? ` · ${deal.platform}` : ""}
-                        </p>
-                      </div>
-                    </Link>
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap tabular-nums">
-                    {deal.size}
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap">
-                    <span
-                      className={`text-xs font-bold uppercase tracking-[0.08em] ${
-                        isSold ? "text-[var(--ink)]" : "text-[var(--muted)]"
-                      }`}
-                    >
-                      {isSold ? "Sold" : "Stock"}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 text-right whitespace-nowrap tabular-nums text-[var(--muted)]">
-                    {formatMoney(deal.cost)}
-                  </td>
-                  <td className="px-2 py-2 text-right whitespace-nowrap tabular-nums font-medium">
-                    {formatMoney(deal.price)}
-                  </td>
-                  <td
-                    className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${profitToneClass(profit)}`}
+            return (
+              <tr key={deal.id} className="group">
+                <td className="sticky left-0 z-10 bg-[var(--bg-elevated)] group-hover:bg-[var(--bg-hover)]">
+                  <Link
+                    href={`/inventory/${deal.id}`}
+                    className="flex items-center gap-3 min-w-0"
                   >
-                    <span>
-                      {profit > 0 ? "+" : ""}
-                      {formatMoney(profit)}
-                    </span>
-                    <span className="ml-1.5 text-xs font-semibold text-[var(--muted)]">
-                      {formatRoi(deal.price, deal.cost)}
-                    </span>
-                  </td>
-                  <td className="px-2 py-2 whitespace-nowrap text-[var(--muted)]">
-                    {ownerLabel}
-                  </td>
-                  <td className="px-3 py-2 text-right whitespace-nowrap sm:px-4">
-                    <div className="flex items-center justify-end gap-3">
-                      {onQuickEdit ? (
-                        <button
-                          type="button"
-                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
-                          onClick={() => onQuickEdit(deal)}
-                        >
-                          Edit
-                        </button>
-                      ) : null}
-                      {deal.status === "in_stock" && onMarkSold ? (
-                        <button
-                          type="button"
-                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
-                          onClick={() => onMarkSold(deal)}
-                        >
-                          Mark sold
-                        </button>
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)]">
+                      {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={photoUrl(cover.filename)}
+                          alt=""
+                          className={`h-full w-full object-cover ${
+                            isSold ? "opacity-50 grayscale" : ""
+                          }`}
+                        />
                       ) : (
-                        <Link
-                          href={`/inventory/${deal.id}`}
-                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
-                        >
-                          Open
-                        </Link>
+                        <span aria-hidden>{initials(deal.name)}</span>
                       )}
                     </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate group-hover:text-[var(--text-primary)]">
+                        {deal.name}
+                      </p>
+                      <p className="text-xs text-[var(--text-tertiary)] truncate">
+                        {deal.category?.name ?? "Uncategorized"}
+                        {` · ${deal.condition}`}
+                        {deal.platform ? ` · ${deal.platform}` : ""}
+                      </p>
+                    </div>
+                  </Link>
+                </td>
+                <td className="whitespace-nowrap tabular-nums">
+                  {deal.size}
+                </td>
+                <td className="whitespace-nowrap">
+                  <StatusBadge
+                    status={isSold ? "sold" : "in_stock"}
+                    variant="badge"
+                  />
+                </td>
+                <td className="text-right whitespace-nowrap tabular-nums text-[var(--text-secondary)]">
+                  {formatMoney(deal.cost)}
+                </td>
+                <td className="text-right whitespace-nowrap tabular-nums font-medium">
+                  {formatMoney(deal.price)}
+                </td>
+                <td className={`text-right whitespace-nowrap tabular-nums ${profitToneClass(profit)}`}>
+                  <span>
+                    {profit > 0 ? "+" : ""}
+                    {formatMoney(profit)}
+                  </span>
+                  <span className="ml-1.5 text-xs text-[var(--text-tertiary)]">
+                    {formatRoi(deal.price, deal.cost)}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap text-[var(--text-secondary)]">
+                  {ownerLabel}
+                </td>
+                <td className="text-right whitespace-nowrap">
+                  <div className="flex items-center justify-end gap-2">
+                    {onQuickEdit && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => onQuickEdit(deal)}
+                      >
+                        Edit
+                      </button>
+                    )}
+                    {deal.status === "in_stock" && onMarkSold ? (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        onClick={() => onMarkSold(deal)}
+                      >
+                        Sell
+                      </button>
+                    ) : (
+                      <Link
+                        href={`/inventory/${deal.id}`}
+                        className="btn btn-ghost btn-sm"
+                      >
+                        View
+                      </Link>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </section>
   );
 }
