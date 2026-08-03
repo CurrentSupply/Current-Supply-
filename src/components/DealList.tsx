@@ -14,23 +14,33 @@ import {
 type Props = {
   deals: DealWithRelations[];
   onMarkSold?: (deal: DealWithRelations) => void;
+  onQuickEdit?: (deal: DealWithRelations) => void;
 };
 
-export function DealList({ deals, onMarkSold }: Props) {
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "—";
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
   return (
     <section className="surface overflow-hidden rounded-none">
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px] text-left text-sm">
+        <table className="w-full min-w-[720px] border-collapse text-left text-sm">
           <thead>
-            <tr className="border-b border-black text-[0.7rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
-              <th className="px-4 py-3 font-bold">Item</th>
-              <th className="px-3 py-3 font-bold">Size</th>
-              <th className="px-3 py-3 font-bold">Status</th>
-              <th className="px-3 py-3 font-bold">Cost</th>
-              <th className="px-3 py-3 font-bold">Price</th>
-              <th className="px-3 py-3 font-bold">Profit</th>
-              <th className="px-3 py-3 font-bold">Owner</th>
-              <th className="px-4 py-3 font-bold">
+            <tr className="border-b border-black bg-white text-[0.65rem] font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
+              <th className="sticky left-0 z-[1] bg-white px-3 py-2.5 font-bold sm:px-4">
+                Item
+              </th>
+              <th className="px-2 py-2.5 font-bold">Size</th>
+              <th className="px-2 py-2.5 font-bold">Status</th>
+              <th className="px-2 py-2.5 text-right font-bold">Cost</th>
+              <th className="px-2 py-2.5 text-right font-bold">Price</th>
+              <th className="px-2 py-2.5 text-right font-bold">Profit</th>
+              <th className="px-2 py-2.5 font-bold">Owner</th>
+              <th className="px-3 py-2.5 font-bold sm:px-4">
                 <span className="sr-only">Actions</span>
               </th>
             </tr>
@@ -45,30 +55,32 @@ export function DealList({ deals, onMarkSold }: Props) {
               return (
                 <tr
                   key={deal.id}
-                  className="border-b border-[var(--line)] last:border-b-0"
+                  className="group border-b border-[var(--line)] last:border-b-0 hover:bg-[#fafafa]"
                 >
-                  <td className="px-4 py-3">
+                  <td className="sticky left-0 z-[1] bg-white px-3 py-2 group-hover:bg-[#fafafa] sm:px-4">
                     <Link
                       href={`/inventory/${deal.id}`}
-                      className="flex min-w-0 items-center gap-3"
+                      className="flex min-w-0 items-center gap-2.5"
                     >
-                      <div className="h-12 w-12 shrink-0 overflow-hidden border border-[var(--line)] bg-[#efefef]">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden bg-[var(--bg-deep)] text-[0.62rem] font-bold tracking-[0.06em] text-[var(--muted)]">
                         {cover ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={photoUrl(cover.filename)}
                             alt=""
                             className={`h-full w-full object-cover ${
-                              isSold ? "opacity-60" : ""
+                              isSold ? "opacity-55 grayscale" : ""
                             }`}
                           />
-                        ) : null}
+                        ) : (
+                          <span aria-hidden>{initials(deal.name)}</span>
+                        )}
                       </div>
                       <div className="min-w-0">
-                        <p className="truncate font-medium underline-offset-2 hover:underline">
+                        <p className="truncate font-semibold leading-tight group-hover:underline group-hover:underline-offset-2">
                           {deal.name}
                         </p>
-                        <p className="truncate text-[var(--muted)]">
+                        <p className="mt-0.5 truncate text-xs text-[var(--muted)]">
                           {deal.category?.name ?? "Uncategorized"}
                           {` · ${deal.condition}`}
                           {deal.platform ? ` · ${deal.platform}` : ""}
@@ -76,47 +88,66 @@ export function DealList({ deals, onMarkSold }: Props) {
                       </div>
                     </Link>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">{deal.size}</td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-2 py-2 whitespace-nowrap tabular-nums">
+                    {deal.size}
+                  </td>
+                  <td className="px-2 py-2 whitespace-nowrap">
                     <span
-                      className={`badge ${isSold ? "badge-sold" : "badge-stock"}`}
+                      className={`text-xs font-bold uppercase tracking-[0.08em] ${
+                        isSold ? "text-[var(--ink)]" : "text-[var(--muted)]"
+                      }`}
                     >
-                      {isSold ? "Sold" : "In stock"}
+                      {isSold ? "Sold" : "Stock"}
                     </span>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-2 py-2 text-right whitespace-nowrap tabular-nums text-[var(--muted)]">
                     {formatMoney(deal.cost)}
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
+                  <td className="px-2 py-2 text-right whitespace-nowrap tabular-nums font-medium">
                     {formatMoney(deal.price)}
                   </td>
                   <td
-                    className={`px-3 py-3 whitespace-nowrap ${profitToneClass(profit)}`}
+                    className={`px-2 py-2 text-right whitespace-nowrap tabular-nums ${profitToneClass(profit)}`}
                   >
-                    {profit > 0 ? "+" : ""}
-                    {formatMoney(profit)}
-                    <span className="ml-1 text-[var(--muted)]">
-                      · {formatRoi(deal.price, deal.cost)}
+                    <span>
+                      {profit > 0 ? "+" : ""}
+                      {formatMoney(profit)}
+                    </span>
+                    <span className="ml-1.5 text-xs font-semibold text-[var(--muted)]">
+                      {formatRoi(deal.price, deal.cost)}
                     </span>
                   </td>
-                  <td className="px-3 py-3 whitespace-nowrap">{ownerLabel}</td>
-                  <td className="px-4 py-3 text-right whitespace-nowrap">
-                    {deal.status === "in_stock" && onMarkSold ? (
-                      <button
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => onMarkSold(deal)}
-                      >
-                        Mark sold
-                      </button>
-                    ) : (
-                      <Link
-                        href={`/inventory/${deal.id}`}
-                        className="text-xs font-bold uppercase tracking-[0.1em] underline underline-offset-4"
-                      >
-                        Open
-                      </Link>
-                    )}
+                  <td className="px-2 py-2 whitespace-nowrap text-[var(--muted)]">
+                    {ownerLabel}
+                  </td>
+                  <td className="px-3 py-2 text-right whitespace-nowrap sm:px-4">
+                    <div className="flex items-center justify-end gap-3">
+                      {onQuickEdit ? (
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
+                          onClick={() => onQuickEdit(deal)}
+                        >
+                          Edit
+                        </button>
+                      ) : null}
+                      {deal.status === "in_stock" && onMarkSold ? (
+                        <button
+                          type="button"
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 transition hover:text-[var(--ink)] hover:underline"
+                          onClick={() => onMarkSold(deal)}
+                        >
+                          Mark sold
+                        </button>
+                      ) : (
+                        <Link
+                          href={`/inventory/${deal.id}`}
+                          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
+                        >
+                          Open
+                        </Link>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );
