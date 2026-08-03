@@ -1,11 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DealForm, type DealFormSubmitPayload } from "@/components/DealForm";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
+import { BackLink } from "@/components/ui";
 import type { Category } from "@/db/schema";
 import { attachCoverFromTitle, createDeal } from "@/lib/dealClient";
 import { getJson } from "@/lib/http";
@@ -21,9 +21,7 @@ export default function NewDealPage() {
     void getJson<Category[]>("/api/categories", "Failed to load categories.")
       .then(setCategories)
       .catch((err) =>
-        setLoadError(
-          err instanceof Error ? err.message : "Failed to load categories.",
-        ),
+        setLoadError(err instanceof Error ? err.message : "Failed to load categories."),
       )
       .finally(() => setLoadingCats(false));
   }, []);
@@ -35,11 +33,10 @@ export default function NewDealPage() {
     if (coverFile) {
       await uploadDealCover(data.id, coverFile);
     } else if (values.name.trim()) {
-      // No upload — try to populate a cover from the title.
       try {
         await attachCoverFromTitle(data.id);
       } catch {
-        // Photo lookup is best-effort; deal is already saved.
+        // Photo lookup is best-effort
       }
     }
 
@@ -47,26 +44,19 @@ export default function NewDealPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl space-y-5">
+    <div className="mx-auto max-w-3xl space-y-6">
       <PageHeader
         kicker="Inventory"
-        title="Add deal"
-        back={
-          <Link
-            href="/inventory"
-            className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
-          >
-            ← Back to inventory
-          </Link>
-        }
+        title="Add Deal"
+        back={<BackLink href="/inventory">Back to Inventory</BackLink>}
       />
-      {loadError ? <PageError message={loadError} /> : null}
+      {loadError && <PageError message={loadError} />}
       {loadingCats ? (
         <PageLoading label="Loading form…" />
       ) : (
         <DealForm
           categories={categories}
-          submitLabel="Save deal"
+          submitLabel="Save Deal"
           onSubmit={onCreate}
           onCancel={() => router.push("/inventory")}
         />

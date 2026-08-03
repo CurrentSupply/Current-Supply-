@@ -170,9 +170,9 @@ function InventoryPageInner() {
           }
         />
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--line)] pb-2">
-            <p className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--muted)]">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-label">
               {deals.length} {deals.length === 1 ? "deal" : "deals"}
             </p>
             <InventoryViewToggle value={view} onChange={updateView} />

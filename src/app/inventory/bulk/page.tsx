@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { BulkDealTable } from "@/components/BulkDealTable";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
+import { BackLink } from "@/components/ui";
 import type { Category } from "@/db/schema";
 import { getJson } from "@/lib/http";
 
@@ -19,34 +20,25 @@ export default function BulkDealsPage() {
     void getJson<Category[]>("/api/categories", "Failed to load categories.")
       .then(setCategories)
       .catch((err) =>
-        setLoadError(
-          err instanceof Error ? err.message : "Failed to load categories.",
-        ),
+        setLoadError(err instanceof Error ? err.message : "Failed to load categories."),
       )
       .finally(() => setLoadingCats(false));
   }, []);
 
   return (
-    <div className="min-w-0 space-y-5">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         kicker="Inventory"
-        title="Add many deals"
+        title="Add Multiple Deals"
         subtitle="Spreadsheet-style entry for in-stock items. Photos can be added later on each deal."
-        back={
-          <Link
-            href="/inventory"
-            className="mb-1 block text-sm text-[var(--muted)] hover:text-[var(--ink)]"
-          >
-            ← Back to inventory
-          </Link>
-        }
+        back={<BackLink href="/inventory">Back to Inventory</BackLink>}
         actions={
-          <Link href="/inventory/new" className="btn btn-secondary w-full sm:w-auto">
-            Add one deal
+          <Link href="/inventory/new" className="btn btn-secondary">
+            Add Single Deal
           </Link>
         }
       />
-      {loadError ? <PageError message={loadError} /> : null}
+      {loadError && <PageError message={loadError} />}
       {loadingCats ? (
         <PageLoading label="Loading form…" />
       ) : (

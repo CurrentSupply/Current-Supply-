@@ -24,9 +24,9 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
   }
 
   return (
-    <section className="surface w-full min-w-0 overflow-hidden rounded-none p-4">
-      <div className="grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="field md:col-span-2 xl:col-span-2">
+    <section className="card p-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="field sm:col-span-2">
           <label htmlFor="search">Search</label>
           <input
             id="search"
@@ -35,6 +35,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             placeholder="Name, notes, condition…"
           />
         </div>
+
         <div className="field">
           <label htmlFor="status">Status</label>
           <select
@@ -45,10 +46,11 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             }
           >
             <option value="all">All</option>
-            <option value="in_stock">In stock</option>
+            <option value="in_stock">In Stock</option>
             <option value="sold">Sold</option>
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="owner">Owner</label>
           <select
@@ -66,6 +68,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             ))}
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="category">Category</label>
           <select
@@ -81,6 +84,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             ))}
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="size">Size</label>
           <input
@@ -90,8 +94,9 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             placeholder="10.5"
           />
         </div>
+
         <div className="field">
-          <label htmlFor="from">Purchased from</label>
+          <label htmlFor="from">Purchased From</label>
           <input
             id="from"
             type="date"
@@ -99,8 +104,9 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             onChange={(e) => update("purchasedFrom", e.target.value)}
           />
         </div>
+
         <div className="field">
-          <label htmlFor="to">Purchased to</label>
+          <label htmlFor="to">Purchased To</label>
           <input
             id="to"
             type="date"
@@ -108,8 +114,9 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             onChange={(e) => update("purchasedTo", e.target.value)}
           />
         </div>
+
         <div className="field">
-          <label htmlFor="sort">Sort</label>
+          <label htmlFor="sort">Sort By</label>
           <select
             id="sort"
             value={value.sort}
@@ -117,8 +124,8 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
               update("sort", e.target.value as InventoryFilterState["sort"])
             }
           >
-            <option value="newest">Newest</option>
-            <option value="oldest">Oldest purchase</option>
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
             <option value="name">Name</option>
             <option value="profit">Profit</option>
             <option value="price">Price</option>

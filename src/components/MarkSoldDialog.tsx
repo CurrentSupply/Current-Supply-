@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatMoney, calcProfit, profitToneClass, toInputDate } from "@/lib/format";
+import { Dialog } from "@/components/ui";
 
 type Props = {
   open: boolean;
@@ -53,85 +54,78 @@ function MarkSoldDialogForm({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-      onClick={onClose}
-    >
-      <form
-        onSubmit={submit}
-        onClick={(e) => e.stopPropagation()}
-        className="surface flex max-h-[min(100dvh,100%)] w-full max-w-md flex-col overflow-hidden rounded-none border-black sm:max-h-[min(90dvh,100%)]"
-      >
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-3">
-          <h2 className="page-title text-xl">Confirm sale price</h2>
-          <p className="mt-1 text-sm text-[var(--muted)]">
-            {dealName ? (
-              <>
-                Selling{" "}
-                <span className="font-medium text-[var(--ink)]">{dealName}</span>
-                . Listed at {formatMoney(listPrice)}
-                {cost !== undefined ? ` · cost ${formatMoney(cost)}` : ""}.
-              </>
-            ) : (
-              <>Confirm the final sale price and date.</>
-            )}
-          </p>
-          <div className="mt-4 grid min-w-0 gap-3">
-            <div className="field">
-              <label htmlFor="sold-price">Final sale price</label>
-              <input
-                id="sold-price"
-                type="number"
-                min="0"
-                step="0.01"
-                inputMode="decimal"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                autoFocus
-                required
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="sold-at">Sold date</label>
-              <input
-                id="sold-at"
-                type="date"
-                value={soldAt}
-                onChange={(e) => setSoldAt(e.target.value)}
-                required
-              />
-            </div>
-            {profit !== null ? (
-              <p className="text-sm text-[var(--muted)]">
-                Profit at this price:{" "}
-                <span className={profitToneClass(profit)}>
-                  {formatMoney(profit)}
-                </span>
-              </p>
-            ) : null}
-            {error ? (
-              <p className="text-sm text-[var(--danger)]">{error}</p>
-            ) : null}
-          </div>
-        </div>
-        <div className="sticky bottom-0 flex shrink-0 flex-col gap-2 border-t border-[var(--line)] bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-row sm:justify-end">
+    <Dialog
+      open={true}
+      onClose={onClose}
+      title="Confirm Sale"
+      description={
+        dealName
+          ? `Selling ${dealName}. Listed at ${formatMoney(listPrice)}${cost !== undefined ? ` · cost ${formatMoney(cost)}` : ""}.`
+          : "Confirm the final sale price and date."
+      }
+      size="sm"
+      footer={
+        <>
           <button
             type="button"
-            className="btn btn-secondary w-full sm:w-auto"
+            className="btn btn-secondary"
             onClick={onClose}
+            disabled={busy}
           >
             Cancel
           </button>
           <button
             type="submit"
-            className="btn btn-primary w-full sm:w-auto"
+            form="mark-sold-form"
+            className="btn btn-primary"
             disabled={busy}
           >
-            {busy ? "Saving…" : "Confirm sold"}
+            {busy ? "Saving…" : "Confirm Sale"}
           </button>
+        </>
+      }
+    >
+      <form id="mark-sold-form" onSubmit={submit} className="space-y-4">
+        <div className="field">
+          <label htmlFor="sold-price">Final Sale Price</label>
+          <input
+            id="sold-price"
+            type="number"
+            min="0"
+            step="0.01"
+            inputMode="decimal"
+            value={price}
+            onChange={(e) => setPrice(e.target.value)}
+            autoFocus
+            required
+          />
         </div>
+
+        <div className="field">
+          <label htmlFor="sold-at">Sold Date</label>
+          <input
+            id="sold-at"
+            type="date"
+            value={soldAt}
+            onChange={(e) => setSoldAt(e.target.value)}
+            required
+          />
+        </div>
+
+        {profit !== null && (
+          <p className="text-sm text-[var(--text-secondary)]">
+            Profit at this price:{" "}
+            <span className={profitToneClass(profit)}>
+              {formatMoney(profit)}
+            </span>
+          </p>
+        )}
+
+        {error && (
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
+        )}
       </form>
-    </div>
+    </Dialog>
   );
 }
 

@@ -7,6 +7,7 @@ import { photoUrl } from "@/lib/format";
 import { deleteJson, patchJson } from "@/lib/http";
 import { uploadDealPhotos } from "@/lib/uploadCover";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { Section } from "@/components/ui";
 
 type Props = {
   dealId: number;
@@ -109,33 +110,29 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
   }
 
   return (
-    <section className="surface rounded-none p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">Photos</h2>
+    <Section
+      title="Photos"
+      action={
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary btn-sm"
             disabled={busy || !dealName.trim()}
             onClick={() => void findFromTitle()}
           >
-            {busy
-              ? "Finding…"
-              : photos.length > 0
-                ? "Replace cover"
-                : "Find cover"}
+            {busy ? "Finding…" : photos.length > 0 ? "Replace Cover" : "Find Cover"}
           </button>
           <button
             type="button"
-            className="btn btn-secondary"
+            className="btn btn-secondary btn-sm"
             disabled={busy}
             onClick={() => inputRef.current?.click()}
           >
-            Add photos
+            Add Photos
           </button>
         </div>
-      </div>
-
+      }
+    >
       <input
         ref={inputRef}
         type="file"
@@ -149,10 +146,10 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
       />
 
       <div
-        className={`mt-4 rounded-none border border-dashed p-6 text-center transition ${
+        className={`rounded-xl border-2 border-dashed p-6 text-center transition-all ${
           dragging
-            ? "border-black bg-[#f3f3f3]"
-            : "border-[var(--line)] bg-white"
+            ? "border-[var(--text-primary)] bg-[var(--bg-secondary)]"
+            : "border-[var(--border-primary)] bg-[var(--bg)]"
         }`}
         onDragOver={(e) => {
           e.preventDefault();
@@ -165,22 +162,23 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
           if (e.dataTransfer.files) void uploadFiles(e.dataTransfer.files);
         }}
       >
-        <p className="text-sm text-[var(--muted)]">
-          Drag & drop images here, or use Add photos. Find cover uses the item
-          name and replaces the previous cover. JPG, PNG, WebP, GIF up to 8MB.
+        <p className="text-sm text-[var(--text-secondary)]">
+          Drag & drop images here, or use Add Photos. Find Cover uses the item name.
         </p>
       </div>
 
-      {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
+      {error && (
+        <div className="alert alert-error mt-4">{error}</div>
+      )}
 
       {photos.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">No photos yet.</p>
+        <p className="mt-4 text-sm text-[var(--text-secondary)]">No photos yet.</p>
       ) : (
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <ul className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {photos.map((photo, index) => (
             <li
               key={photo.id}
-              className="overflow-hidden rounded-none border border-[var(--line)] bg-white"
+              className="overflow-hidden rounded-xl border border-[var(--border-secondary)] bg-[var(--bg-elevated)]"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
@@ -188,22 +186,22 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
                 alt={photo.originalName}
                 className="aspect-square w-full object-cover"
               />
-              <div className="flex flex-wrap gap-1 p-2">
+              <div className="flex flex-wrap gap-1 p-3">
                 {photo.isCover ? (
                   <span className="badge badge-stock">Cover</span>
                 ) : (
                   <button
                     type="button"
-                    className="btn btn-ghost !px-2 !py-1 text-xs"
+                    className="btn btn-ghost btn-sm"
                     disabled={busy}
                     onClick={() => void setCover(photo.id)}
                   >
-                    Set cover
+                    Set Cover
                   </button>
                 )}
                 <button
                   type="button"
-                  className="btn btn-ghost !px-2 !py-1 text-xs"
+                  className="btn btn-ghost btn-sm"
                   disabled={busy || index === 0}
                   onClick={() => void move(photo.id, -1)}
                 >
@@ -211,7 +209,7 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-ghost !px-2 !py-1 text-xs"
+                  className="btn btn-ghost btn-sm"
                   disabled={busy || index === photos.length - 1}
                   onClick={() => void move(photo.id, 1)}
                 >
@@ -219,7 +217,7 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-danger !px-2 !py-1 text-xs"
+                  className="btn btn-ghost btn-sm text-[var(--color-error)]"
                   disabled={busy}
                   onClick={() => setDeleteId(photo.id)}
                 >
@@ -240,6 +238,6 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
         onCancel={() => setDeleteId(null)}
         onConfirm={() => void removePhoto()}
       />
-    </section>
+    </Section>
   );
 }
