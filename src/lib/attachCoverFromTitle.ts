@@ -3,14 +3,14 @@ import {
   getDeal,
   insertPhoto,
   listPhotosForDeal,
-  setCoverPhoto,
   type DealWithRelations,
 } from "@/lib/deals";
 import { findShoeImageFromTitle } from "@/lib/findShoeImage";
 import { extForContentType } from "@/lib/photoLimits";
+import { pickCoverPhoto, promoteCoverAndRetirePrevious } from "@/lib/replaceCover";
 import { saveUpload } from "@/lib/storage";
 
-/** Find a web photo from a deal title and save it as the cover. */
+/** Find a web photo from a deal title and save/replace it as the cover. */
 export async function attachCoverPhotoFromTitle(
   dealId: number,
   name?: string,
@@ -28,6 +28,7 @@ export async function attachCoverPhotoFromTitle(
   }
 
   const existing = await listPhotosForDeal(dealId);
+  const previousCover = pickCoverPhoto(existing);
   const found = await findShoeImageFromTitle(title);
   const ext = extForContentType(found.mimeType, "cover.jpg");
   const path = `${dealId}-${randomUUID()}${ext}`;
@@ -41,7 +42,7 @@ export async function attachCoverPhotoFromTitle(
     isCover: true,
     sortOrder: maxOrder + 1,
   });
-  await setCoverPhoto(dealId, row.id);
+  await promoteCoverAndRetirePrevious(dealId, row.id, previousCover);
 
   const full = await getDeal(dealId);
   if (!full) {

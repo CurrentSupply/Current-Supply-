@@ -53,6 +53,7 @@ async function registerPhoto(
     contentType: string;
     fileSize: number;
     isCover?: boolean;
+    replaceCover?: boolean;
   },
 ) {
   return postJson<RegisterResponse>(
@@ -78,7 +79,7 @@ async function prepareFile(file: File): Promise<File> {
 export async function uploadDealPhotos(
   dealId: number,
   files: File[],
-  options: { isCover?: boolean } = {},
+  options: { isCover?: boolean; replaceCover?: boolean } = {},
 ) {
   const created: { id: number }[] = [];
 
@@ -92,6 +93,7 @@ export async function uploadDealPhotos(
       contentType: prepared.type || signed.contentType,
       fileSize: prepared.size,
       isCover: options.isCover && i === 0,
+      replaceCover: Boolean(options.replaceCover) && i === 0,
     });
     if (result.photos?.[0]) created.push(result.photos[0]);
   }
@@ -99,7 +101,7 @@ export async function uploadDealPhotos(
   return { photos: created };
 }
 
-/** Client helper: upload a file as deal cover. */
+/** Upload a file as deal cover, replacing the previous cover photo. */
 export async function uploadDealCover(dealId: number, file: File) {
-  return uploadDealPhotos(dealId, [file], { isCover: true });
+  return uploadDealPhotos(dealId, [file], { isCover: true, replaceCover: true });
 }

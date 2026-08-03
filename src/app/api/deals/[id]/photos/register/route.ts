@@ -6,12 +6,12 @@ import {
   getDeal,
   insertPhoto,
   listPhotosForDeal,
-  setCoverPhoto,
 } from "@/lib/deals";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_PHOTO_BYTES,
 } from "@/lib/photoLimits";
+import { pickCoverPhoto, promoteCoverAndRetirePrevious } from "@/lib/replaceCover";
 import {
   DEAL_PHOTOS_BUCKET,
   getSupabaseUrl,
@@ -25,6 +25,8 @@ type RegisterBody = {
   contentType?: string;
   fileSize?: number;
   isCover?: boolean;
+  /** When true with isCover, delete the previous cover after the new one is set. */
+  replaceCover?: boolean;
 };
 
 function publicUrlForPath(path: string): string {
@@ -50,6 +52,7 @@ export async function POST(request: Request, { params }: Params) {
     const contentType = String(body.contentType || "").toLowerCase();
     const fileSize = Number(body.fileSize ?? 0);
     const wantCover = Boolean(body.isCover);
+    const replaceCover = Boolean(body.replaceCover);
 
     if (!path) {
       return jsonError("Missing path.", 400);
@@ -69,6 +72,7 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     const existingPhotos = await listPhotosForDeal(dealId);
+    const previousCover = pickCoverPhoto(existingPhotos);
     const maxOrder = existingPhotos.reduce(
       (max, p) => Math.max(max, p.sortOrder),
       -1,
@@ -84,7 +88,13 @@ export async function POST(request: Request, { params }: Params) {
     });
 
     if (makeCover) {
-      await setCoverPhoto(dealId, row.id);
+      // Explicit cover uploads retire the previous cover file/row.
+      // First auto-cover (empty gallery) has no previousCover.
+      await promoteCoverAndRetirePrevious(
+        dealId,
+        row.id,
+        wantCover && replaceCover ? previousCover : null,
+      );
     }
 
     const created: Photo[] = [row];
