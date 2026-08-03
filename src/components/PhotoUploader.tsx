@@ -113,16 +113,18 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-lg font-semibold">Photos</h2>
         <div className="flex flex-wrap gap-2">
-          {photos.length === 0 ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={busy || !dealName.trim()}
-              onClick={() => void findFromTitle()}
-            >
-              {busy ? "Finding…" : "Find from title"}
-            </button>
-          ) : null}
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={busy || !dealName.trim()}
+            onClick={() => void findFromTitle()}
+          >
+            {busy
+              ? "Finding…"
+              : photos.length > 0
+                ? "Replace cover from name"
+                : "Find cover from name"}
+          </button>
           <button
             type="button"
             className="btn btn-secondary"
@@ -164,8 +166,8 @@ export function PhotoUploader({ dealId, dealName, photos, onChange }: Props) {
         }}
       >
         <p className="text-sm text-[var(--muted)]">
-          Drag & drop images here, or use Add photos. No photo? Find one from
-          the deal title. JPG, PNG, WebP, GIF up to 8MB.
+          Drag & drop images here, or use Add photos. Cover can be replaced from
+          the item name. JPG, PNG, WebP, GIF up to 8MB.
         </p>
       </div>
 
