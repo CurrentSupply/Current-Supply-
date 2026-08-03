@@ -34,6 +34,13 @@ export type DealWithRelations = Deal & {
   coverPhoto: Photo | null;
 };
 
+/** Sold deals with a sale date — used for realized profit and month charts. */
+export function isDatedSold<T extends Pick<Deal, "status" | "soldAt">>(
+  d: T,
+): d is T & { soldAt: string } {
+  return d.status === "sold" && Boolean(d.soldAt);
+}
+
 function attachRelations(
   deal: Deal,
   categoriesById: Map<number, Category>,
@@ -46,6 +53,44 @@ function attachRelations(
   return {
     ...deal,
     category: deal.categoryId ? categoriesById.get(deal.categoryId) ?? null : null,
+    photos,
+    coverPhoto: photos.find((p) => p.isCover) ?? photos[0] ?? null,
+  };
+}
+
+async function photosByDealIds(
+  dealIds: number[],
+): Promise<Map<number, Photo[]>> {
+  const photosByDeal = new Map<number, Photo[]>();
+  if (dealIds.length === 0) return photosByDeal;
+
+  await ensureDb();
+  const supabase = getServiceSupabase();
+  const { data, error } = await supabase
+    .from("photos")
+    .select("*")
+    .in("deal_id", dealIds);
+  if (error) throw new Error(error.message);
+
+  for (const row of (data ?? []) as PhotoRow[]) {
+    const photo = mapPhoto(row);
+    const list = photosByDeal.get(photo.dealId) ?? [];
+    list.push(photo);
+    photosByDeal.set(photo.dealId, list);
+  }
+  return photosByDeal;
+}
+
+function withAttachedPhotos(
+  deal: DealWithRelations,
+  photosByDeal: Map<number, Photo[]>,
+): DealWithRelations {
+  const photos = (photosByDeal.get(deal.id) ?? []).slice().sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return a.id - b.id;
+  });
+  return {
+    ...deal,
     photos,
     coverPhoto: photos.find((p) => p.isCover) ?? photos[0] ?? null,
   };
@@ -381,6 +426,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 
   const inStock = all.filter((d) => d.status === "in_stock");
   const sold = all.filter((d) => d.status === "sold");
+  const realizedSold = sold.filter(isDatedSold);
 
   const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
   const inventoryValue = inStock.reduce((sum, d) => sum + d.price, 0);
@@ -388,20 +434,18 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     (sum, d) => sum + calcProfit(d.price, d.cost),
     0,
   );
-  const realizedProfit = sold.reduce(
+  const realizedProfit = realizedSold.reduce(
     (sum, d) => sum + calcProfit(d.price, d.cost),
     0,
   );
 
-  const rois = sold
+  const rois = realizedSold
     .filter((d) => d.cost > 0)
     .map((d) => ((d.price - d.cost) / d.cost) * 100);
   const avgRoiSold =
     rois.length > 0 ? rois.reduce((a, b) => a + b, 0) / rois.length : null;
 
-  const held = sold
-    .filter((d) => d.soldAt)
-    .map((d) => daysBetween(d.purchasedAt, d.soldAt!));
+  const held = realizedSold.map((d) => daysBetween(d.purchasedAt, d.soldAt));
   const avgDaysHeldSold =
     held.length > 0 ? held.reduce((a, b) => a + b, 0) / held.length : null;
 
@@ -421,7 +465,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     if (d.status === "in_stock") current.inStock += 1;
     else {
       current.sold += 1;
-      current.profit += calcProfit(d.price, d.cost);
+      if (isDatedSold(d)) current.profit += calcProfit(d.price, d.cost);
     }
     catMap.set(name, current);
   }
@@ -446,7 +490,7 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     if (d.status === "in_stock") current.inStock += 1;
     else {
       current.sold += 1;
-      current.profit += calcProfit(d.price, d.cost);
+      if (isDatedSold(d)) current.profit += calcProfit(d.price, d.cost);
     }
     ownerMap.set(name, current);
   }
@@ -484,8 +528,8 @@ export async function getDashboardStats(): Promise<DashboardStats> {
       : null;
 
   const monthMap = new Map<string, { sold: number; profit: number }>();
-  for (const d of sold) {
-    const key = (d.soldAt ?? d.updatedAt).slice(0, 7);
+  for (const d of realizedSold) {
+    const key = d.soldAt.slice(0, 7);
     const current = monthMap.get(key) ?? { sold: 0, profit: 0 };
     current.sold += 1;
     current.profit += calcProfit(d.price, d.cost);
@@ -501,10 +545,15 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .sort((a, b) => a.month.localeCompare(b.month))
     .slice(-6);
 
-  const recentlySold = sold
-    .filter((d) => d.soldAt)
+  const recentlySoldBare = realizedSold
     .sort((a, b) => (b.soldAt ?? "").localeCompare(a.soldAt ?? ""))
     .slice(0, 6);
+  const recentPhotos = await photosByDealIds(
+    recentlySoldBare.map((d) => d.id),
+  );
+  const recentlySold = recentlySoldBare.map((d) =>
+    withAttachedPhotos(d, recentPhotos),
+  );
 
   return {
     inStockCount: inStock.length,
