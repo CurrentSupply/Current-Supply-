@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { DealCard } from "@/components/DealCard";
+import { DealList } from "@/components/DealList";
 import { InventoryFilters } from "@/components/InventoryFilters";
+import { InventoryViewToggle } from "@/components/InventoryViewToggle";
 import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
@@ -22,6 +24,11 @@ import {
   searchParamsHaveFilters,
   writeStoredInventoryFilters,
 } from "@/lib/inventoryFilters";
+import {
+  type InventoryViewMode,
+  readStoredInventoryView,
+  writeStoredInventoryView,
+} from "@/lib/inventoryView";
 
 function InventoryPageInner() {
   const router = useRouter();
@@ -32,11 +39,16 @@ function InventoryPageInner() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [soldTarget, setSoldTarget] = useState<DealWithRelations | null>(null);
+  const [view, setView] = useState<InventoryViewMode>("grid");
 
   const filters = useMemo(
     () => filtersFromSearchParams(searchParams),
     [searchParams],
   );
+
+  useEffect(() => {
+    queueMicrotask(() => setView(readStoredInventoryView()));
+  }, []);
 
   useEffect(() => {
     void getJson<Category[]>("/api/categories", "Failed to load categories.")
@@ -68,6 +80,11 @@ function InventoryPageInner() {
     },
     [router],
   );
+
+  const updateView = useCallback((next: InventoryViewMode) => {
+    writeStoredInventoryView(next);
+    setView(next);
+  }, []);
 
   const loadDeals = useCallback(async () => {
     setLoading(true);
@@ -151,14 +168,26 @@ function InventoryPageInner() {
           }
         />
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {deals.map((deal) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              onMarkSold={setSoldTarget}
-            />
-          ))}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-[var(--muted)]">
+              {deals.length} {deals.length === 1 ? "deal" : "deals"}
+            </p>
+            <InventoryViewToggle value={view} onChange={updateView} />
+          </div>
+          {view === "list" ? (
+            <DealList deals={deals} onMarkSold={setSoldTarget} />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {deals.map((deal) => (
+                <DealCard
+                  key={deal.id}
+                  deal={deal}
+                  onMarkSold={setSoldTarget}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 
