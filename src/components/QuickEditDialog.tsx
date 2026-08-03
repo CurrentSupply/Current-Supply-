@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   DEAL_CONDITION_LABELS,
@@ -116,17 +115,9 @@ function QuickEditDialogForm({
         className="surface flex max-h-[min(100dvh,100%)] w-full max-w-lg flex-col overflow-hidden rounded-none border-black sm:max-h-[min(90dvh,100%)]"
       >
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5 pb-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="page-kicker">Quick edit</p>
-              <h2 className="page-title mt-1 text-xl">Update deal</h2>
-            </div>
-            <Link
-              href={`/inventory/${deal.id}/edit`}
-              className="shrink-0 text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
-            >
-              Full edit
-            </Link>
+          <div>
+            <p className="page-kicker">Quick edit</p>
+            <h2 className="page-title mt-1 text-xl">Update deal</h2>
           </div>
 
           <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">

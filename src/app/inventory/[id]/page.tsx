@@ -8,15 +8,18 @@ import { MarkSoldDialog } from "@/components/MarkSoldDialog";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import { PhotoUploader } from "@/components/PhotoUploader";
-import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { QuickEditDialog } from "@/components/QuickEditDialog";
+import { DEAL_CONDITION_LABELS, DEAL_OWNER_LABELS, parseDealOwner, type Category } from "@/db/schema";
 import {
   deleteDeal,
   fetchDeal,
   markDealInStock,
   markDealSold,
+  patchDealFields,
   updateDealSoldAt,
 } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
+import { getJson } from "@/lib/http";
 import {
   calcProfit,
   calcRoi,
@@ -31,16 +34,22 @@ export default function DealDetailPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [deal, setDeal] = useState<DealWithRelations | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [actionError, setActionError] = useState("");
   const [soldDateError, setSoldDateError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [markSoldOpen, setMarkSoldOpen] = useState(false);
+  const [quickEditOpen, setQuickEditOpen] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const data = await fetchDeal(params.id);
+      const [data, cats] = await Promise.all([
+        fetchDeal(params.id),
+        getJson<Category[]>("/api/categories", "Failed to load categories."),
+      ]);
       setDeal(data);
+      setCategories(cats);
       setError("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Deal not found.");
@@ -124,9 +133,13 @@ export default function DealDetailPage() {
                 Mark in stock
               </button>
             )}
-            <Link href={`/inventory/${deal.id}/edit`} className="btn btn-secondary">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setQuickEditOpen(true)}
+            >
               Edit
-            </Link>
+            </button>
             <Link href={`/overlay?dealId=${deal.id}`} className="btn btn-secondary">
               Stamp
             </Link>
@@ -278,6 +291,17 @@ export default function DealDetailPage() {
         onClose={() => setMarkSoldOpen(false)}
         onConfirm={async ({ price, soldAt }) => {
           await markDealSold(deal.id, { price, soldAt });
+          await load();
+        }}
+      />
+
+      <QuickEditDialog
+        open={quickEditOpen}
+        deal={deal}
+        categories={categories}
+        onClose={() => setQuickEditOpen(false)}
+        onSave={async (fields) => {
+          await patchDealFields(deal.id, fields);
           await load();
         }}
       />
