@@ -75,7 +75,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
           >
             <option value="all">All</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
+              <option key={c.id} value={String(c.id)}>
                 {c.name}
               </option>
             ))}
