@@ -15,6 +15,7 @@ import type { Category } from "@/db/schema";
 import { markDealSold, patchDealFields } from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import { getJson } from "@/lib/http";
+import { uploadDealCover, uploadDealPhotos } from "@/lib/uploadCover";
 import {
   filtersFromSearchParams,
   filtersToQueryString,
@@ -216,9 +217,15 @@ function InventoryPageInner() {
         deal={editTarget}
         categories={categories}
         onClose={() => setEditTarget(null)}
-        onSave={async (fields) => {
+        onSave={async ({ fields, coverFile, extraFiles }) => {
           if (!editTarget) return;
           await patchDealFields(editTarget.id, fields);
+          if (coverFile) {
+            await uploadDealCover(editTarget.id, coverFile);
+          }
+          if (extraFiles.length > 0) {
+            await uploadDealPhotos(editTarget.id, extraFiles);
+          }
           await loadDeals();
         }}
       />

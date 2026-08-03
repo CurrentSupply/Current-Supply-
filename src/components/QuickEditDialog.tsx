@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   DEAL_CONDITION_LABELS,
   DEAL_CONDITIONS,
@@ -11,20 +11,32 @@ import {
   parseDealOwner,
   type Category,
 } from "@/db/schema";
-import type { QuickEditDealFields } from "@/lib/dealClient";
+import {
+  attachCoverFromTitle,
+  type QuickEditDealFields,
+} from "@/lib/dealClient";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
   formatMoney,
+  photoUrl,
   profitToneClass,
 } from "@/lib/format";
+import { patchJson } from "@/lib/http";
+import { ALLOWED_IMAGE_TYPES, MAX_PHOTO_BYTES } from "@/lib/photoLimits";
+
+export type QuickEditSavePayload = {
+  fields: QuickEditDealFields;
+  coverFile: File | null;
+  extraFiles: File[];
+};
 
 type Props = {
   open: boolean;
   deal: DealWithRelations | null;
   categories: Category[];
   onClose: () => void;
-  onSave: (fields: QuickEditDealFields) => Promise<void>;
+  onSave: (payload: QuickEditSavePayload) => Promise<void>;
 };
 
 function QuickEditDialogForm({
@@ -36,8 +48,11 @@ function QuickEditDialogForm({
   deal: DealWithRelations;
   categories: Category[];
   onClose: () => void;
-  onSave: (fields: QuickEditDealFields) => Promise<void>;
+  onSave: (payload: QuickEditSavePayload) => Promise<void>;
 }) {
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const extraInputRef = useRef<HTMLInputElement>(null);
+
   const [name, setName] = useState(deal.name);
   const [size, setSize] = useState(deal.size);
   const [cost, setCost] = useState(String(deal.cost));
@@ -48,8 +63,22 @@ function QuickEditDialogForm({
     deal.categoryId ? String(deal.categoryId) : "",
   );
   const [platform, setPlatform] = useState(deal.platform ?? "");
+  const [coverFilename, setCoverFilename] = useState(
+    deal.coverPhoto?.filename ?? null,
+  );
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreviewUrl, setCoverPreviewUrl] = useState<string | null>(null);
+  const [extraFiles, setExtraFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
+  const [findBusy, setFindBusy] = useState(false);
   const [error, setError] = useState("");
+  const [photoHint, setPhotoHint] = useState("");
+
+  useEffect(() => {
+    return () => {
+      if (coverPreviewUrl) URL.revokeObjectURL(coverPreviewUrl);
+    };
+  }, [coverPreviewUrl]);
 
   const costNum = Number(cost);
   const priceNum = Number(price);
@@ -57,6 +86,83 @@ function QuickEditDialogForm({
     if (!Number.isFinite(costNum) || !Number.isFinite(priceNum)) return null;
     return calcProfit(priceNum, costNum);
   }, [costNum, priceNum]);
+
+  const displayCover = coverPreviewUrl
+    ? coverPreviewUrl
+    : coverFilename
+      ? photoUrl(coverFilename)
+      : null;
+
+  function pickCover(file: File | null) {
+    if (!file) return;
+    if (!ALLOWED_IMAGE_TYPES.has(file.type)) {
+      setError("Use JPG, PNG, WebP, or GIF.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      setError("Cover photo must be 8MB or smaller.");
+      return;
+    }
+    setError("");
+    setCoverFile(file);
+    setCoverPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return URL.createObjectURL(file);
+    });
+    setPhotoHint("New cover will upload on save.");
+  }
+
+  function pickExtraFiles(list: FileList | File[]) {
+    const files = Array.from(list).filter((f) => ALLOWED_IMAGE_TYPES.has(f.type));
+    if (files.length === 0) {
+      setError("Use JPG, PNG, WebP, or GIF.");
+      return;
+    }
+    setError("");
+    setExtraFiles((prev) => [...prev, ...files]);
+    setPhotoHint(
+      files.length === 1
+        ? "1 photo will upload on save."
+        : `${files.length} photos will upload on save.`,
+    );
+  }
+
+  async function findCover() {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError("Add an item name before finding a cover.");
+      return;
+    }
+    setFindBusy(true);
+    setError("");
+    setPhotoHint("");
+    try {
+      if (trimmedName !== deal.name) {
+        await patchJson(
+          `/api/deals/${deal.id}`,
+          { name: trimmedName },
+          "Could not save name.",
+        );
+      }
+      const result = await attachCoverFromTitle(deal.id);
+      const nextCover = result.deal.coverPhoto?.filename ?? null;
+      setCoverFilename(nextCover);
+      setCoverFile(null);
+      setCoverPreviewUrl((prev) => {
+        if (prev) URL.revokeObjectURL(prev);
+        return null;
+      });
+      setPhotoHint(
+        nextCover
+          ? "Cover updated from the item name."
+          : "No cover found for that name.",
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not find a cover.");
+    } finally {
+      setFindBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,14 +194,18 @@ function QuickEditDialogForm({
     setError("");
     try {
       await onSave({
-        name: trimmedName,
-        size: trimmedSize,
-        cost: costNum,
-        price: priceNum,
-        condition,
-        owner,
-        categoryId: category,
-        platform: platform.trim(),
+        fields: {
+          name: trimmedName,
+          size: trimmedSize,
+          cost: costNum,
+          price: priceNum,
+          condition,
+          owner,
+          categoryId: category,
+          platform: platform.trim(),
+        },
+        coverFile,
+        extraFiles,
       });
       onClose();
     } catch (err) {
@@ -127,6 +237,94 @@ function QuickEditDialogForm({
             >
               Full edit
             </Link>
+          </div>
+
+          <div className="mt-4">
+            <p className="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
+              Cover photo
+            </p>
+            <div className="mt-2 overflow-hidden border border-[var(--line)] bg-[var(--bg-deep)]">
+              {displayCover ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={displayCover}
+                  alt=""
+                  className="aspect-[4/3] w-full object-cover"
+                />
+              ) : (
+                <div className="flex aspect-[4/3] items-center justify-center text-sm text-[var(--muted)]">
+                  No cover yet
+                </div>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy || findBusy}
+                onClick={() => coverInputRef.current?.click()}
+              >
+                {displayCover ? "Replace cover" : "Add cover"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={busy || findBusy || !name.trim()}
+                onClick={() => void findCover()}
+              >
+                {findBusy ? "Finding…" : "Find cover"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                disabled={busy || findBusy}
+                onClick={() => extraInputRef.current?.click()}
+              >
+                Add photos
+              </button>
+            </div>
+            {extraFiles.length > 0 ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                {extraFiles.length} extra{" "}
+                {extraFiles.length === 1 ? "photo" : "photos"} queued
+                <button
+                  type="button"
+                  className="ml-2 font-bold uppercase tracking-[0.08em] underline-offset-2 hover:underline"
+                  onClick={() => setExtraFiles([])}
+                >
+                  Clear
+                </button>
+              </p>
+            ) : null}
+            {photoHint ? (
+              <p className="mt-2 text-xs text-[var(--muted)]">{photoHint}</p>
+            ) : (
+              <p className="mt-2 text-xs text-[var(--muted)]">
+                JPG, PNG, WebP, GIF up to 8MB. Uploads apply on save (Find cover
+                applies immediately).
+              </p>
+            )}
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={(e) => {
+                pickCover(e.target.files?.[0] ?? null);
+                e.target.value = "";
+              }}
+            />
+            <input
+              ref={extraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files) pickExtraFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
           </div>
 
           <div className="mt-4 grid min-w-0 gap-3 sm:grid-cols-2">
@@ -250,13 +448,14 @@ function QuickEditDialogForm({
             type="button"
             className="btn btn-secondary w-full sm:w-auto"
             onClick={onClose}
+            disabled={busy}
           >
             Cancel
           </button>
           <button
             type="submit"
             className="btn btn-primary w-full sm:w-auto"
-            disabled={busy}
+            disabled={busy || findBusy}
           >
             {busy ? "Saving…" : "Save"}
           </button>
@@ -268,11 +467,5 @@ function QuickEditDialogForm({
 
 export function QuickEditDialog({ open, deal, ...props }: Props) {
   if (!open || !deal) return null;
-  return (
-    <QuickEditDialogForm
-      key={deal.id}
-      deal={deal}
-      {...props}
-    />
-  );
+  return <QuickEditDialogForm key={deal.id} deal={deal} {...props} />;
 }
