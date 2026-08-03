@@ -9,6 +9,7 @@ import {
   type Category,
   type CategoryRow,
   type Deal,
+  type DealCondition,
   type DealOwner,
   type DealRow,
   type DealStatus,
@@ -16,6 +17,11 @@ import {
   type PhotoRow,
 } from "@/db/schema";
 import { calcProfit, daysBetween, roundMoney } from "@/lib/format";
+import {
+  dealFiltersFromReport,
+  soldDateInRange,
+  type ReportFilterState,
+} from "@/lib/reportFilters";
 
 export type DealFilters = {
   q?: string;
@@ -23,6 +29,7 @@ export type DealFilters = {
   owner?: DealOwner | "all";
   categoryId?: number | "all";
   size?: string;
+  condition?: DealCondition | "all";
   purchasedFrom?: string;
   purchasedTo?: string;
   sort?: "newest" | "oldest" | "name" | "profit" | "price";
@@ -127,6 +134,9 @@ export async function listDeals(
   }
   if (filters.size?.trim()) {
     query = query.ilike("size", `%${filters.size.trim()}%`);
+  }
+  if (filters.condition && filters.condition !== "all") {
+    query = query.eq("condition", filters.condition);
   }
   if (filters.purchasedFrom) {
     query = query.gte("purchased_at", filters.purchasedFrom);
@@ -412,21 +422,41 @@ export type DashboardStats = {
   avgRoiSold: number | null;
   avgDaysHeldSold: number | null;
   bestCategory: { name: string; profit: number } | null;
+  bestSize: { name: string; sold: number; profit: number } | null;
   byCategory: { name: string; count: number; inStock: number; sold: number; profit: number }[];
   byOwner: { name: string; count: number; inStock: number; sold: number; profit: number }[];
   byCondition: { name: string; count: number; inStock: number; sold: number }[];
+  bySize: { name: string; count: number; inStock: number; sold: number; profit: number }[];
   withBoxCount: number;
   withInsolesCount: number;
   byMonth: { month: string; sold: number; profit: number }[];
   recentlySold: DealWithRelations[];
 };
 
-export async function getDashboardStats(): Promise<DashboardStats> {
-  const all = await listDeals({ sort: "newest" }, { includePhotos: false });
+export async function getDashboardStats(
+  reportFilters: ReportFilterState = {
+    owner: "all",
+    categoryId: "all",
+    size: "",
+    status: "all",
+    condition: "all",
+    purchasedFrom: "",
+    purchasedTo: "",
+    soldFrom: "",
+    soldTo: "",
+  },
+): Promise<DashboardStats> {
+  const all = await listDeals(dealFiltersFromReport(reportFilters), {
+    includePhotos: false,
+  });
 
   const inStock = all.filter((d) => d.status === "in_stock");
   const sold = all.filter((d) => d.status === "sold");
-  const realizedSold = sold.filter(isDatedSold);
+  const realizedSold = sold
+    .filter(isDatedSold)
+    .filter((d) =>
+      soldDateInRange(d.soldAt, reportFilters.soldFrom, reportFilters.soldTo),
+    );
 
   const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
   const inventoryValue = inStock.reduce((sum, d) => sum + d.price, 0);
@@ -465,7 +495,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     if (d.status === "in_stock") current.inStock += 1;
     else {
       current.sold += 1;
-      if (isDatedSold(d)) current.profit += calcProfit(d.price, d.cost);
+      if (
+        isDatedSold(d) &&
+        soldDateInRange(d.soldAt, reportFilters.soldFrom, reportFilters.soldTo)
+      ) {
+        current.profit += calcProfit(d.price, d.cost);
+      }
     }
     catMap.set(name, current);
   }
@@ -490,7 +525,12 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     if (d.status === "in_stock") current.inStock += 1;
     else {
       current.sold += 1;
-      if (isDatedSold(d)) current.profit += calcProfit(d.price, d.cost);
+      if (
+        isDatedSold(d) &&
+        soldDateInRange(d.soldAt, reportFilters.soldFrom, reportFilters.soldTo)
+      ) {
+        current.profit += calcProfit(d.price, d.cost);
+      }
     }
     ownerMap.set(name, current);
   }
@@ -518,6 +558,35 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     .map(([name, v]) => ({ name, ...v }))
     .sort((a, b) => b.count - a.count);
 
+  const sizeMap = new Map<
+    string,
+    { count: number; inStock: number; sold: number; profit: number }
+  >();
+  for (const d of all) {
+    const name = d.size.trim() || "—";
+    const current = sizeMap.get(name) ?? {
+      count: 0,
+      inStock: 0,
+      sold: 0,
+      profit: 0,
+    };
+    current.count += 1;
+    if (d.status === "in_stock") current.inStock += 1;
+    else {
+      current.sold += 1;
+      if (
+        isDatedSold(d) &&
+        soldDateInRange(d.soldAt, reportFilters.soldFrom, reportFilters.soldTo)
+      ) {
+        current.profit += calcProfit(d.price, d.cost);
+      }
+    }
+    sizeMap.set(name, current);
+  }
+  const bySize = [...sizeMap.entries()]
+    .map(([name, v]) => ({ name, ...v, profit: roundMoney(v.profit) }))
+    .sort((a, b) => b.profit - a.profit || b.sold - a.sold);
+
   const topProfitCategory = [...byCategory].sort((a, b) => b.profit - a.profit)[0];
   const bestCategory =
     topProfitCategory && topProfitCategory.profit > 0
@@ -526,6 +595,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
           profit: topProfitCategory.profit,
         }
       : null;
+
+  const topSize = bySize.find((row) => row.sold > 0 && row.profit > 0) ?? null;
+  const bestSize = topSize
+    ? { name: topSize.name, sold: topSize.sold, profit: topSize.profit }
+    : null;
 
   const monthMap = new Map<string, { sold: number; profit: number }>();
   for (const d of realizedSold) {
@@ -565,9 +639,11 @@ export async function getDashboardStats(): Promise<DashboardStats> {
     avgRoiSold,
     avgDaysHeldSold,
     bestCategory,
+    bestSize,
     byCategory,
     byOwner,
     byCondition,
+    bySize: bySize.slice(0, 12),
     withBoxCount: all.filter((d) => d.hasBox).length,
     withInsolesCount: all.filter((d) => d.hasInsoles).length,
     byMonth,

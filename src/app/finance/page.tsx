@@ -1,23 +1,40 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
-import { FINANCE_CATEGORIES } from "@/db/schema";
+import { ReportFilters } from "@/components/ReportFilters";
+import { FINANCE_CATEGORIES, type Category } from "@/db/schema";
 import type { FinanceSummary } from "@/lib/finance";
 import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
 import { deleteJson, getJson, postJson } from "@/lib/http";
+import {
+  DEFAULT_REPORT_FILTERS,
+  FINANCE_FILTERS_STORAGE_KEY,
+  reportFiltersToQueryString,
+  readStoredReportFilters,
+  writeStoredReportFilters,
+  type ReportFilterState,
+} from "@/lib/reportFilters";
+
+type SoldSort = "newest" | "profit" | "size";
 
 export default function FinancePage() {
+  const [filters, setFilters] = useState<ReportFilterState>(
+    DEFAULT_REPORT_FILTERS,
+  );
+  const [hydrated, setHydrated] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [soldSort, setSoldSort] = useState<SoldSort>("newest");
   const [form, setForm] = useState({
     entryDate: toInputDate(),
     kind: "out" as "in" | "out",
@@ -26,9 +43,26 @@ export default function FinancePage() {
     note: "",
   });
 
-  const load = useCallback(async () => {
+  useEffect(() => {
+    queueMicrotask(() => {
+      setFilters(
+        readStoredReportFilters(FINANCE_FILTERS_STORAGE_KEY) ??
+          DEFAULT_REPORT_FILTERS,
+      );
+      setHydrated(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    void getJson<Category[]>("/api/categories", "Failed to load categories.")
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
+
+  const load = useCallback(async (active: ReportFilterState) => {
+    const qs = reportFiltersToQueryString(active);
     const data = await getJson<FinanceSummary>(
-      "/api/finance",
+      qs ? `/api/finance?${qs}` : "/api/finance",
       "Could not load finance.",
     );
     setSummary(data);
@@ -36,13 +70,35 @@ export default function FinancePage() {
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     const handle = window.setTimeout(() => {
-      void load().catch((err) =>
+      void load(filters).catch((err) =>
         setError(err instanceof Error ? err.message : "Could not load finance."),
       );
-    }, 0);
+    }, 200);
     return () => window.clearTimeout(handle);
-  }, [load]);
+  }, [filters, hydrated, load]);
+
+  function updateFilters(next: ReportFilterState) {
+    writeStoredReportFilters(FINANCE_FILTERS_STORAGE_KEY, next);
+    setFilters(next);
+  }
+
+  const sortedSoldDeals = useMemo(() => {
+    const rows = summary?.soldDeals ?? [];
+    const copy = [...rows];
+    switch (soldSort) {
+      case "profit":
+        return copy.sort((a, b) => b.profit - a.profit);
+      case "size":
+        return copy.sort((a, b) =>
+          a.size.localeCompare(b.size, undefined, { numeric: true }),
+        );
+      case "newest":
+      default:
+        return copy.sort((a, b) => b.soldAt.localeCompare(a.soldAt));
+    }
+  }, [summary?.soldDeals, soldSort]);
 
   async function addEntry(e: React.FormEvent) {
     e.preventDefault();
@@ -58,7 +114,7 @@ export default function FinancePage() {
         "Could not save entry.",
       );
       setForm((prev) => ({ ...prev, amount: "", note: "" }));
-      await load();
+      await load(filters);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save entry.");
     } finally {
@@ -86,7 +142,7 @@ export default function FinancePage() {
     }
   }
 
-  if (!summary && !error) {
+  if (!hydrated || (!summary && !error)) {
     return <PageLoading label="Loading finance…" />;
   }
 
@@ -106,6 +162,13 @@ export default function FinancePage() {
             {syncBusy ? "Syncing…" : "Sync Google Sheets"}
           </button>
         }
+      />
+
+      <ReportFilters
+        categories={categories}
+        value={filters}
+        onChange={updateFilters}
+        showStatus={false}
       />
 
       {error ? <PageError message={error} /> : null}
@@ -200,17 +263,32 @@ export default function FinancePage() {
           <section className="surface rounded-none p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">Sold deals breakdown</h2>
-              <Link
-                href="/inventory?status=sold"
-                className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4"
-              >
-                View sold
-              </Link>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="field min-w-[10rem]">
+                  <label htmlFor="sold-sort" className="sr-only">
+                    Sort sold deals
+                  </label>
+                  <select
+                    id="sold-sort"
+                    value={soldSort}
+                    onChange={(e) => setSoldSort(e.target.value as SoldSort)}
+                  >
+                    <option value="newest">Newest sale</option>
+                    <option value="profit">Highest profit</option>
+                    <option value="size">Size</option>
+                  </select>
+                </div>
+                <Link
+                  href="/inventory?status=sold"
+                  className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4"
+                >
+                  View sold
+                </Link>
+              </div>
             </div>
-            {summary.soldDeals.length === 0 ? (
+            {sortedSoldDeals.length === 0 ? (
               <p className="mt-4 text-sm text-[var(--muted)]">
-                No sales yet. Mark a deal sold and it will show here with cost,
-                sale price, and profit.
+                No sales match these filters. Mark a deal sold or clear filters.
               </p>
             ) : (
               <div className="mt-4 overflow-x-auto">
@@ -226,7 +304,7 @@ export default function FinancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {summary.soldDeals.map((row) => (
+                    {sortedSoldDeals.map((row) => (
                       <tr
                         key={row.id}
                         className="border-b border-[var(--line)]"
@@ -476,7 +554,7 @@ export default function FinancePage() {
           if (deleteId === null) return;
           await deleteJson(`/api/finance?id=${deleteId}`, "Could not delete.");
           setDeleteId(null);
-          await load();
+          await load(filters);
         }}
       />
     </div>

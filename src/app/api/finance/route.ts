@@ -6,10 +6,12 @@ import {
   deleteFinanceEntry,
   getFinanceSummary,
 } from "@/lib/finance";
+import { reportFiltersFromRequestUrl } from "@/lib/reportFilters";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const summary = await getFinanceSummary();
+    const filters = reportFiltersFromRequestUrl(request.url);
+    const summary = await getFinanceSummary(filters);
     return NextResponse.json(summary);
   } catch (err) {
     const message =
