@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -84,10 +85,12 @@ export function DealCard({ deal, onMarkSold, onQuickEdit }: Props) {
           {onQuickEdit && (
             <button
               type="button"
-              className="btn btn-ghost flex-1 rounded-none border-0"
+              aria-label="Edit"
+              title="Edit"
+              className="inline-flex items-center justify-center px-4 py-3 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               onClick={() => onQuickEdit(deal)}
             >
-              Edit
+              <PencilIcon className="h-4 w-4" />
             </button>
           )}
           {deal.status === "in_stock" && onMarkSold && (
