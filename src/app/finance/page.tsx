@@ -1,24 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageError, PageLoading } from "@/components/PageStatus";
+import { ReportFilters } from "@/components/ReportFilters";
 import { Alert, Section } from "@/components/ui";
-import { FINANCE_CATEGORIES } from "@/db/schema";
+import { FINANCE_CATEGORIES, type Category } from "@/db/schema";
 import type { FinanceSummary } from "@/lib/finance";
 import { formatMoney, profitToneClass, toInputDate } from "@/lib/format";
 import { deleteJson, getJson, postJson } from "@/lib/http";
+import {
+  DEFAULT_REPORT_FILTERS,
+  FINANCE_FILTERS_STORAGE_KEY,
+  reportFiltersToQueryString,
+  readStoredReportFilters,
+  writeStoredReportFilters,
+  type ReportFilterState,
+} from "@/lib/reportFilters";
+
+type SoldSort = "newest" | "profit" | "size";
 
 export default function FinancePage() {
+  const [filters, setFilters] = useState<ReportFilterState>(
+    DEFAULT_REPORT_FILTERS,
+  );
+  const [hydrated, setHydrated] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncMsg, setSyncMsg] = useState("");
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [soldSort, setSoldSort] = useState<SoldSort>("newest");
   const [form, setForm] = useState({
     entryDate: toInputDate(),
     kind: "out" as "in" | "out",
@@ -27,29 +44,78 @@ export default function FinancePage() {
     note: "",
   });
 
-  const load = useCallback(async () => {
-    const data = await getJson<FinanceSummary>("/api/finance", "Could not load finance.");
+  useEffect(() => {
+    queueMicrotask(() => {
+      const stored = readStoredReportFilters(FINANCE_FILTERS_STORAGE_KEY);
+      setFilters(
+        stored
+          ? { ...DEFAULT_REPORT_FILTERS, ...stored, status: "all" }
+          : DEFAULT_REPORT_FILTERS,
+      );
+      setHydrated(true);
+    });
+  }, []);
+
+  useEffect(() => {
+    void getJson<Category[]>("/api/categories", "Failed to load categories.")
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
+
+  const load = useCallback(async (active: ReportFilterState) => {
+    const qs = reportFiltersToQueryString({ ...active, status: "all" });
+    const data = await getJson<FinanceSummary>(
+      qs ? `/api/finance?${qs}` : "/api/finance",
+      "Could not load finance.",
+    );
     setSummary(data);
     setError("");
   }, []);
 
   useEffect(() => {
+    if (!hydrated) return;
     const handle = window.setTimeout(() => {
-      void load().catch((err) =>
+      void load(filters).catch((err) =>
         setError(err instanceof Error ? err.message : "Could not load finance."),
       );
-    }, 0);
+    }, 200);
     return () => window.clearTimeout(handle);
-  }, [load]);
+  }, [filters, hydrated, load]);
+
+  function updateFilters(next: ReportFilterState) {
+    const normalized = { ...next, status: "all" as const };
+    writeStoredReportFilters(FINANCE_FILTERS_STORAGE_KEY, normalized);
+    setFilters(normalized);
+  }
+
+  const sortedSoldDeals = useMemo(() => {
+    const rows = summary?.soldDeals ?? [];
+    const copy = [...rows];
+    switch (soldSort) {
+      case "profit":
+        return copy.sort((a, b) => b.profit - a.profit);
+      case "size":
+        return copy.sort((a, b) =>
+          a.size.localeCompare(b.size, undefined, { numeric: true }),
+        );
+      case "newest":
+      default:
+        return copy.sort((a, b) => b.soldAt.localeCompare(a.soldAt));
+    }
+  }, [summary?.soldDeals, soldSort]);
 
   async function addEntry(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError("");
     try {
-      await postJson("/api/finance", { ...form, amount: Number(form.amount) }, "Could not save entry.");
+      await postJson(
+        "/api/finance",
+        { ...form, amount: Number(form.amount) },
+        "Could not save entry.",
+      );
       setForm((prev) => ({ ...prev, amount: "", note: "" }));
-      await load();
+      await load(filters);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save entry.");
     } finally {
@@ -78,7 +144,7 @@ export default function FinancePage() {
     }
   }
 
-  if (!summary && !error) {
+  if (!hydrated || (!summary && !error)) {
     return <PageLoading label="Loading finance…" />;
   }
 
@@ -100,14 +166,21 @@ export default function FinancePage() {
         }
       />
 
+      <ReportFilters
+        categories={categories}
+        value={filters}
+        onChange={updateFilters}
+        showStatus={false}
+      />
+
       {error && <PageError message={error} />}
       {syncMsg && <Alert variant="info">{syncMsg}</Alert>}
 
       {summary && !summary.sheetsConfigured && (
         <Alert variant="info" title="Set up Google Sheets auto-sync">
           <p className="text-sm">
-            Configure a Google Cloud service account to sync deals automatically to Sheets.
-            See documentation for setup instructions.
+            Configure a Google Cloud service account to sync deals automatically
+            to Sheets. See documentation for setup instructions.
           </p>
         </Alert>
       )}
@@ -141,17 +214,32 @@ export default function FinancePage() {
           <Section
             title="Sold Deals Breakdown"
             action={
-              <Link
-                href="/inventory?status=sold"
-                className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
-              >
-                View all sold →
-              </Link>
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                  <span className="sr-only">Sort sold deals</span>
+                  <select
+                    id="sold-sort"
+                    value={soldSort}
+                    onChange={(e) => setSoldSort(e.target.value as SoldSort)}
+                    className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-elevated)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--text-primary)]"
+                  >
+                    <option value="newest">Newest sale</option>
+                    <option value="profit">Highest profit</option>
+                    <option value="size">Size</option>
+                  </select>
+                </label>
+                <Link
+                  href="/inventory?status=sold"
+                  className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+                >
+                  View all sold →
+                </Link>
+              </div>
             }
           >
-            {summary.soldDeals.length === 0 ? (
+            {sortedSoldDeals.length === 0 ? (
               <p className="text-sm text-[var(--text-secondary)]">
-                No sales yet. Mark a deal sold and it will show here.
+                No sales match these filters. Mark a deal sold or clear filters.
               </p>
             ) : (
               <div className="table-container overflow-x-auto">
@@ -167,7 +255,7 @@ export default function FinancePage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {summary.soldDeals.map((row) => (
+                    {sortedSoldDeals.map((row) => (
                       <tr key={row.id}>
                         <td className="whitespace-nowrap">{row.soldAt}</td>
                         <td>
@@ -189,7 +277,9 @@ export default function FinancePage() {
                         <td className="text-right whitespace-nowrap tabular-nums">
                           {formatMoney(row.price)}
                         </td>
-                        <td className={`text-right whitespace-nowrap tabular-nums ${profitToneClass(row.profit)}`}>
+                        <td
+                          className={`text-right whitespace-nowrap tabular-nums ${profitToneClass(row.profit)}`}
+                        >
                           {formatMoney(row.profit)}
                         </td>
                         <td className="whitespace-nowrap">{row.owner}</td>
@@ -208,11 +298,16 @@ export default function FinancePage() {
               ) : (
                 <ul className="divide-y divide-[var(--border-secondary)]">
                   {summary.byMonth.map((row) => (
-                    <li key={row.month} className="flex items-center justify-between py-3 text-sm">
+                    <li
+                      key={row.month}
+                      className="flex items-center justify-between py-3 text-sm"
+                    >
                       <span>
                         {row.month} · {row.sold} sold
                       </span>
-                      <span className={profitToneClass(row.profit)}>{formatMoney(row.profit)}</span>
+                      <span className={profitToneClass(row.profit)}>
+                        {formatMoney(row.profit)}
+                      </span>
                     </li>
                   ))}
                 </ul>
@@ -227,15 +322,26 @@ export default function FinancePage() {
               ) : (
                 <ul className="divide-y divide-[var(--border-secondary)]">
                   {summary.activity.slice(0, 12).map((row) => (
-                    <li key={row.id} className="flex items-center justify-between gap-3 py-3 text-sm">
+                    <li
+                      key={row.id}
+                      className="flex items-center justify-between gap-3 py-3 text-sm"
+                    >
                       <div className="min-w-0">
                         <p className="truncate font-medium">{row.label}</p>
                         <p className="text-[var(--text-tertiary)]">
                           {row.date} ·{" "}
-                          {row.source === "deal_sale" ? "Sale" : row.source === "deal_purchase" ? "Purchase" : "Manual"}
+                          {row.source === "deal_sale"
+                            ? "Sale"
+                            : row.source === "deal_purchase"
+                              ? "Purchase"
+                              : "Manual"}
                         </p>
                       </div>
-                      <span className={row.kind === "in" ? "profit-pos" : "profit-neg"}>
+                      <span
+                        className={
+                          row.kind === "in" ? "profit-pos" : "profit-neg"
+                        }
+                      >
                         {row.kind === "in" ? "+" : "−"}
                         {formatMoney(row.amount)}
                       </span>
@@ -247,7 +353,10 @@ export default function FinancePage() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-2">
-            <Section title="Manual Adjustment" subtitle="Fees, shipping, payouts — not tied to a single deal.">
+            <Section
+              title="Manual Adjustment"
+              subtitle="Fees, shipping, payouts — not tied to a single deal."
+            >
               <form onSubmit={(e) => void addEntry(e)} className="space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="field">
@@ -256,7 +365,9 @@ export default function FinancePage() {
                       id="entryDate"
                       type="date"
                       value={form.entryDate}
-                      onChange={(e) => setForm((p) => ({ ...p, entryDate: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, entryDate: e.target.value }))
+                      }
                       required
                     />
                   </div>
@@ -265,7 +376,12 @@ export default function FinancePage() {
                     <select
                       id="kind"
                       value={form.kind}
-                      onChange={(e) => setForm((p) => ({ ...p, kind: e.target.value as "in" | "out" }))}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          kind: e.target.value as "in" | "out",
+                        }))
+                      }
                     >
                       <option value="out">Cash Out</option>
                       <option value="in">Cash In</option>
@@ -279,7 +395,9 @@ export default function FinancePage() {
                       min="0"
                       step="0.01"
                       value={form.amount}
-                      onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, amount: e.target.value }))
+                      }
                       required
                     />
                   </div>
@@ -288,10 +406,14 @@ export default function FinancePage() {
                     <select
                       id="category"
                       value={form.category}
-                      onChange={(e) => setForm((p) => ({ ...p, category: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, category: e.target.value }))
+                      }
                     >
                       {FINANCE_CATEGORIES.map((c) => (
-                        <option key={c} value={c}>{c}</option>
+                        <option key={c} value={c}>
+                          {c}
+                        </option>
                       ))}
                     </select>
                   </div>
@@ -300,7 +422,9 @@ export default function FinancePage() {
                     <input
                       id="note"
                       value={form.note}
-                      onChange={(e) => setForm((p) => ({ ...p, note: e.target.value }))}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, note: e.target.value }))
+                      }
                       placeholder="eBay fees, shipping, payout…"
                     />
                   </div>
@@ -313,11 +437,16 @@ export default function FinancePage() {
 
             <Section title="Manual Ledger">
               {summary.entries.length === 0 ? (
-                <p className="text-sm text-[var(--text-secondary)]">No manual adjustments yet.</p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  No manual adjustments yet.
+                </p>
               ) : (
                 <ul className="divide-y divide-[var(--border-secondary)]">
                   {summary.entries.map((entry) => (
-                    <li key={entry.id} className="flex items-center justify-between gap-3 py-3 text-sm">
+                    <li
+                      key={entry.id}
+                      className="flex items-center justify-between gap-3 py-3 text-sm"
+                    >
                       <div>
                         <p className="font-medium">
                           {entry.entryDate} · {entry.category}
@@ -328,7 +457,11 @@ export default function FinancePage() {
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={entry.kind === "in" ? "profit-pos" : "profit-neg"}>
+                        <span
+                          className={
+                            entry.kind === "in" ? "profit-pos" : "profit-neg"
+                          }
+                        >
                           {entry.kind === "in" ? "+" : "−"}
                           {formatMoney(entry.amount)}
                         </span>
@@ -360,7 +493,7 @@ export default function FinancePage() {
           if (deleteId === null) return;
           await deleteJson(`/api/finance?id=${deleteId}`, "Could not delete.");
           setDeleteId(null);
-          await load();
+          await load(filters);
         }}
       />
     </div>

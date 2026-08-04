@@ -10,6 +10,11 @@ import {
 import { isDatedSold, listDeals, type DealWithRelations } from "@/lib/deals";
 import { calcProfit, roundMoney } from "@/lib/format";
 import { isGoogleSheetsConfigured } from "@/lib/googleSheets";
+import {
+  dealFiltersFromReport,
+  soldDateInRange,
+  type ReportFilterState,
+} from "@/lib/reportFilters";
 
 export async function listFinanceEntries(): Promise<FinanceEntry[]> {
   await ensureDb();
@@ -125,14 +130,30 @@ function toSoldRow(d: DealWithRelations): SoldDealRow | null {
   };
 }
 
-export async function getFinanceSummary(): Promise<FinanceSummary> {
+export async function getFinanceSummary(
+  reportFilters: ReportFilterState = {
+    owner: "all",
+    categoryId: "all",
+    size: "",
+    status: "all",
+    condition: "all",
+    purchasedFrom: "",
+    purchasedTo: "",
+    soldFrom: "",
+    soldTo: "",
+  },
+): Promise<FinanceSummary> {
   const [entries, deals] = await Promise.all([
     listFinanceEntries().catch(() => [] as FinanceEntry[]),
-    listDeals({ sort: "newest" }, { includePhotos: false }),
+    listDeals(dealFiltersFromReport(reportFilters), { includePhotos: false }),
   ]);
 
   const sold = deals.filter((d) => d.status === "sold");
-  const realizedSold = sold.filter(isDatedSold);
+  const realizedSold = sold
+    .filter(isDatedSold)
+    .filter((d) =>
+      soldDateInRange(d.soldAt, reportFilters.soldFrom, reportFilters.soldTo),
+    );
   const inStock = deals.filter((d) => d.status === "in_stock");
 
   const soldDeals = realizedSold
@@ -146,9 +167,18 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
   const inventoryCost = inStock.reduce((sum, d) => sum + d.cost, 0);
   const purchaseSpend = deals.reduce((sum, d) => sum + d.cost, 0);
 
+  const filteredEntries = entries.filter((entry) => {
+    if (!reportFilters.soldFrom && !reportFilters.soldTo) return true;
+    return soldDateInRange(
+      entry.entryDate,
+      reportFilters.soldFrom,
+      reportFilters.soldTo,
+    );
+  });
+
   let manualIn = 0;
   let manualOut = 0;
-  for (const entry of entries) {
+  for (const entry of filteredEntries) {
     if (entry.kind === "in") manualIn += entry.amount;
     else manualOut += entry.amount;
   }
@@ -177,7 +207,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
       dealId: d.id,
     });
   }
-  for (const entry of entries) {
+  for (const entry of filteredEntries) {
     activity.push({
       id: `manual-${entry.id}`,
       date: entry.entryDate.slice(0, 10),
@@ -231,7 +261,7 @@ export async function getFinanceSummary(): Promise<FinanceSummary> {
     soldDeals,
     activity: activity.slice(0, 40),
     byMonth,
-    entries,
+    entries: filteredEntries,
     sheetsConfigured: isGoogleSheetsConfigured(),
   };
 }

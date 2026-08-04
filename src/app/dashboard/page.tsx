@@ -1,34 +1,96 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
+import { ReportFilters } from "@/components/ReportFilters";
 import { Section } from "@/components/ui";
+import type { Category } from "@/db/schema";
 import type { DashboardStats } from "@/lib/deals";
 import { calcProfit, formatMoney, photoUrl, profitToneClass } from "@/lib/format";
 import { getJson } from "@/lib/http";
+import {
+  ANALYTICS_FILTERS_STORAGE_KEY,
+  DEFAULT_REPORT_FILTERS,
+  reportFiltersAreRestrictive,
+  reportFiltersToQueryString,
+  readStoredReportFilters,
+  writeStoredReportFilters,
+  type ReportFilterState,
+} from "@/lib/reportFilters";
 
 export default function DashboardPage() {
+  const [filters, setFilters] = useState<ReportFilterState>(
+    DEFAULT_REPORT_FILTERS,
+  );
+  const [hydrated, setHydrated] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    void getJson<DashboardStats>("/api/stats", "Could not load analytics.")
-      .then(setStats)
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : "Could not load analytics."),
+    queueMicrotask(() => {
+      setFilters(
+        readStoredReportFilters(ANALYTICS_FILTERS_STORAGE_KEY) ??
+          DEFAULT_REPORT_FILTERS,
       );
+      setHydrated(true);
+    });
   }, []);
 
-  if (error) return <PageError message={error} />;
-  if (!stats) {
-    return <PageLoading label="Loading analytics…" />;
+  useEffect(() => {
+    void getJson<Category[]>("/api/categories", "Failed to load categories.")
+      .then(setCategories)
+      .catch(() => setCategories([]));
+  }, []);
+
+  const loadStats = useCallback(async (active: ReportFilterState) => {
+    setLoading(true);
+    setError("");
+    try {
+      const qs = reportFiltersToQueryString(active);
+      const data = await getJson<DashboardStats>(
+        qs ? `/api/stats?${qs}` : "/api/stats",
+        "Could not load analytics.",
+      );
+      setStats(data);
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Could not load analytics.",
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    const handle = setTimeout(() => {
+      void loadStats(filters);
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [filters, hydrated, loadStats]);
+
+  function updateFilters(next: ReportFilterState) {
+    writeStoredReportFilters(ANALYTICS_FILTERS_STORAGE_KEY, next);
+    setFilters(next);
   }
 
+  if (error && !stats) return <PageError message={error} />;
+  if (!hydrated || (!stats && loading)) {
+    return <PageLoading label="Loading analytics…" />;
+  }
+  if (!stats) return <PageError message={error || "Could not load analytics."} />;
+
   const empty = stats.inStockCount + stats.soldCount === 0;
-  const maxMonthProfit = Math.max(1, ...stats.byMonth.map((m) => Math.abs(m.profit)));
+  const filteredEmpty = empty && reportFiltersAreRestrictive(filters);
+  const maxMonthProfit = Math.max(
+    1,
+    ...stats.byMonth.map((m) => Math.abs(m.profit)),
+  );
 
   return (
     <div className="space-y-6">
@@ -38,23 +100,55 @@ export default function DashboardPage() {
         subtitle="Stock, sales, and capital at a glance."
       />
 
-      {empty ? (
+      <ReportFilters
+        categories={categories}
+        value={filters}
+        onChange={updateFilters}
+      />
+
+      {error ? <PageError message={error} /> : null}
+
+      {loading ? (
+        <PageLoading label="Updating analytics…" />
+      ) : empty ? (
         <PageEmpty
-          title="No deals yet"
-          description="Add inventory to unlock stock and sales metrics."
+          title={filteredEmpty ? "No deals match" : "No deals yet"}
+          description={
+            filteredEmpty
+              ? "Try clearing filters to see everything."
+              : "Add inventory to unlock stock and sales metrics."
+          }
           action={
-            <Link href="/inventory/new" className="btn btn-primary">
-              Add Deal
-            </Link>
+            filteredEmpty ? undefined : (
+              <Link href="/inventory/new" className="btn btn-primary">
+                Add Deal
+              </Link>
+            )
           }
         />
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricTile label="In Stock" value={String(stats.inStockCount)} hint="Open deals right now" />
-            <MetricTile label="Sold" value={String(stats.soldCount)} hint="Closed deals" />
-            <MetricTile label="Inventory Cost" value={formatMoney(stats.inventoryCost)} hint="Cash tied up in stock" />
-            <MetricTile label="List Value" value={formatMoney(stats.inventoryValue)} hint="If everything sold at list" />
+            <MetricTile
+              label="In Stock"
+              value={String(stats.inStockCount)}
+              hint="Open deals right now"
+            />
+            <MetricTile
+              label="Sold"
+              value={String(stats.soldCount)}
+              hint="Closed deals in view"
+            />
+            <MetricTile
+              label="Inventory Cost"
+              value={formatMoney(stats.inventoryCost)}
+              hint="Cash tied up in stock"
+            />
+            <MetricTile
+              label="List Value"
+              value={formatMoney(stats.inventoryValue)}
+              hint="If everything sold at list"
+            />
             <MetricTile
               label="Projected Profit"
               value={formatMoney(stats.projectedProfit)}
@@ -69,27 +163,68 @@ export default function DashboardPage() {
             />
             <MetricTile
               label="Avg ROI (Sold)"
-              value={stats.avgRoiSold === null ? "—" : `${stats.avgRoiSold > 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`}
-              valueClassName={stats.avgRoiSold === null ? undefined : profitToneClass(stats.avgRoiSold)}
+              value={
+                stats.avgRoiSold === null
+                  ? "—"
+                  : `${stats.avgRoiSold > 0 ? "+" : ""}${stats.avgRoiSold.toFixed(1)}%`
+              }
+              valueClassName={
+                stats.avgRoiSold === null
+                  ? undefined
+                  : profitToneClass(stats.avgRoiSold)
+              }
             />
             <MetricTile
               label="Avg Days Held"
-              value={stats.avgDaysHeldSold === null ? "—" : `${stats.avgDaysHeldSold.toFixed(0)} days`}
+              value={
+                stats.avgDaysHeldSold === null
+                  ? "—"
+                  : `${stats.avgDaysHeldSold.toFixed(0)} days`
+              }
             />
-            <MetricTile label="With Box" value={String(stats.withBoxCount)} hint="Across all deals" />
-            <MetricTile label="With Insoles" value={String(stats.withInsolesCount)} hint="Across all deals" />
             <MetricTile
               label="Best Category"
               value={stats.bestCategory?.name ?? "—"}
-              hint={stats.bestCategory ? formatMoney(stats.bestCategory.profit) : "No sold profit yet"}
-              hintClassName={stats.bestCategory ? profitToneClass(stats.bestCategory.profit) : "text-[var(--text-secondary)]"}
+              hint={
+                stats.bestCategory
+                  ? formatMoney(stats.bestCategory.profit)
+                  : "No sold profit yet"
+              }
+              hintClassName={
+                stats.bestCategory
+                  ? profitToneClass(stats.bestCategory.profit)
+                  : "text-[var(--text-secondary)]"
+              }
+            />
+            <MetricTile
+              label="Best Size"
+              value={stats.bestSize ? `Size ${stats.bestSize.name}` : "—"}
+              hint={
+                stats.bestSize
+                  ? `${stats.bestSize.sold} sold · ${formatMoney(stats.bestSize.profit)}`
+                  : "No sold profit yet"
+              }
+              hintClassName={
+                stats.bestSize
+                  ? profitToneClass(stats.bestSize.profit)
+                  : "text-[var(--text-secondary)]"
+              }
+            />
+            <MetricTile
+              label="With Box"
+              value={String(stats.withBoxCount)}
+              hint="Across deals in view"
             />
             <MetricTile
               label="Sell-Through"
               value={
                 stats.inStockCount + stats.soldCount === 0
                   ? "—"
-                  : `${Math.round((stats.soldCount / (stats.inStockCount + stats.soldCount)) * 100)}%`
+                  : `${Math.round(
+                      (stats.soldCount /
+                        (stats.inStockCount + stats.soldCount)) *
+                        100,
+                    )}%`
               }
               hint="Sold ÷ total deals"
             />
@@ -113,7 +248,10 @@ export default function DashboardPage() {
                         <div
                           className="h-full rounded-full bg-[var(--text-primary)] transition-all"
                           style={{
-                            width: `${Math.max(8, (Math.abs(row.profit) / maxMonthProfit) * 100)}%`,
+                            width: `${Math.max(
+                              8,
+                              (Math.abs(row.profit) / maxMonthProfit) * 100,
+                            )}%`,
                           }}
                         />
                       </div>
@@ -123,20 +261,55 @@ export default function DashboardPage() {
               )}
             </Section>
 
+            <Section
+              title="By Size"
+              subtitle="Ranked by sold profit — see what size moves best."
+            >
+              {stats.bySize.length === 0 ? (
+                <p className="text-sm text-[var(--text-secondary)]">No sizes yet.</p>
+              ) : (
+                <ul className="divide-y divide-[var(--border-secondary)]">
+                  {stats.bySize.map((row) => (
+                    <li
+                      key={row.name}
+                      className="flex items-center justify-between py-3 text-sm"
+                    >
+                      <div>
+                        <p className="font-medium">Size {row.name}</p>
+                        <p className="text-[var(--text-secondary)]">
+                          {row.inStock} in stock · {row.sold} sold
+                        </p>
+                      </div>
+                      <p className={profitToneClass(row.profit)}>
+                        {formatMoney(row.profit)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Section>
+
             <Section title="By Category">
               {stats.byCategory.length === 0 ? (
-                <p className="text-sm text-[var(--text-secondary)]">No categories yet.</p>
+                <p className="text-sm text-[var(--text-secondary)]">
+                  No categories yet.
+                </p>
               ) : (
                 <ul className="divide-y divide-[var(--border-secondary)]">
                   {stats.byCategory.map((row) => (
-                    <li key={row.name} className="flex items-center justify-between py-3 text-sm">
+                    <li
+                      key={row.name}
+                      className="flex items-center justify-between py-3 text-sm"
+                    >
                       <div>
                         <p className="font-medium">{row.name}</p>
                         <p className="text-[var(--text-secondary)]">
                           {row.inStock} in stock · {row.sold} sold
                         </p>
                       </div>
-                      <p className={profitToneClass(row.profit)}>{formatMoney(row.profit)}</p>
+                      <p className={profitToneClass(row.profit)}>
+                        {formatMoney(row.profit)}
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -146,14 +319,19 @@ export default function DashboardPage() {
             <Section title="By Owner">
               <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byOwner.map((row) => (
-                  <li key={row.name} className="flex items-center justify-between py-3 text-sm">
+                  <li
+                    key={row.name}
+                    className="flex items-center justify-between py-3 text-sm"
+                  >
                     <div>
                       <p className="font-medium">{row.name}</p>
                       <p className="text-[var(--text-secondary)]">
                         {row.inStock} in stock · {row.sold} sold
                       </p>
                     </div>
-                    <p className={profitToneClass(row.profit)}>{formatMoney(row.profit)}</p>
+                    <p className={profitToneClass(row.profit)}>
+                      {formatMoney(row.profit)}
+                    </p>
                   </li>
                 ))}
               </ul>
@@ -162,7 +340,10 @@ export default function DashboardPage() {
             <Section title="By Condition">
               <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byCondition.map((row) => (
-                  <li key={row.name} className="flex items-center justify-between py-3 text-sm">
+                  <li
+                    key={row.name}
+                    className="flex items-center justify-between py-3 text-sm"
+                  >
                     <p className="font-medium">{row.name}</p>
                     <p className="text-[var(--text-secondary)]">
                       {row.inStock} in stock · {row.sold} sold
@@ -176,13 +357,18 @@ export default function DashboardPage() {
           <Section
             title="Recently Sold"
             action={
-              <Link href="/inventory?status=sold" className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]">
+              <Link
+                href="/inventory?status=sold"
+                className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+              >
                 View all sold →
               </Link>
             }
           >
             {stats.recentlySold.length === 0 ? (
-              <p className="text-sm text-[var(--text-secondary)]">No sales recorded yet.</p>
+              <p className="text-sm text-[var(--text-secondary)]">
+                No sales recorded yet.
+              </p>
             ) : (
               <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.recentlySold.map((deal) => {
@@ -194,20 +380,22 @@ export default function DashboardPage() {
                         className="flex gap-3 rounded-xl border border-[var(--border-secondary)] bg-[var(--bg-elevated)] p-3 transition-all hover:border-[var(--border-primary)] hover:shadow-sm"
                       >
                         <div className="h-14 w-14 overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
-                          {deal.coverPhoto && (
+                          {deal.coverPhoto ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
                               src={photoUrl(deal.coverPhoto.filename)}
                               alt=""
                               className="h-full w-full object-cover"
                             />
-                          )}
+                          ) : null}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{deal.name}</p>
                           <p className="text-sm text-[var(--text-secondary)]">
-                            {deal.soldAt?.slice(0, 10)} ·{" "}
-                            <span className={profitToneClass(soldProfit)}>{formatMoney(soldProfit)}</span>
+                            {deal.size} · {deal.soldAt?.slice(0, 10)} ·{" "}
+                            <span className={profitToneClass(soldProfit)}>
+                              {formatMoney(soldProfit)}
+                            </span>
                           </p>
                         </div>
                       </Link>
