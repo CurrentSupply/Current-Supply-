@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
@@ -24,6 +25,60 @@ function initials(name: string): string {
   if (parts.length === 0) return "—";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function PhotoThumbnail({
+  src,
+  alt,
+  initials: initialsText,
+  isSold,
+}: {
+  src?: string;
+  alt: string;
+  initials: string;
+  isSold: boolean;
+}) {
+  const [showPreview, setShowPreview] = useState(false);
+
+  if (!src) {
+    return (
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)]">
+        <span aria-hidden>{initialsText}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="relative"
+      onMouseEnter={() => setShowPreview(true)}
+      onMouseLeave={() => setShowPreview(false)}
+    >
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)] cursor-zoom-in">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          className={`h-full w-full object-cover ${
+            isSold ? "opacity-50 grayscale" : ""
+          }`}
+        />
+      </div>
+      
+      {showPreview && (
+        <div className="absolute left-0 top-full mt-2 z-50 pointer-events-none">
+          <div className="rounded-xl overflow-hidden shadow-xl border border-[var(--border-primary)] bg-[var(--bg-elevated)]">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={src}
+              alt={alt}
+              className="w-64 h-64 object-cover"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
@@ -52,33 +107,25 @@ export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
             return (
               <tr key={deal.id} className="group">
                 <td className="sticky left-0 z-10 bg-[var(--bg-elevated)] group-hover:bg-[var(--bg-hover)] w-[200px] max-w-[200px]">
-                  <Link
-                    href={`/inventory/${deal.id}`}
-                    className="flex items-center gap-2 min-w-0"
-                  >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)]">
-                      {cover ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={photoUrl(cover.filename)}
-                          alt=""
-                          className={`h-full w-full object-cover ${
-                            isSold ? "opacity-50 grayscale" : ""
-                          }`}
-                        />
-                      ) : (
-                        <span aria-hidden>{initials(deal.name)}</span>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1 overflow-hidden">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <PhotoThumbnail
+                      src={cover ? photoUrl(cover.filename) : undefined}
+                      alt={deal.name}
+                      initials={initials(deal.name)}
+                      isSold={isSold}
+                    />
+                    <Link
+                      href={`/inventory/${deal.id}`}
+                      className="min-w-0 flex-1 overflow-hidden"
+                    >
                       <p className="font-medium truncate group-hover:text-[var(--text-primary)] text-sm">
                         {deal.name}
                       </p>
                       <p className="text-xs text-[var(--text-tertiary)] truncate">
                         {deal.category?.name ?? "Uncategorized"}
                       </p>
-                    </div>
-                  </Link>
+                    </Link>
+                  </div>
                 </td>
                 <td className="whitespace-nowrap tabular-nums">
                   {deal.size}
