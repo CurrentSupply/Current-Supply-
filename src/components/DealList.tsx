@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
 import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
@@ -25,6 +26,37 @@ function initials(name: string): string {
   if (parts.length === 0) return "—";
   if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
   return `${parts[0]![0] ?? ""}${parts[1]![0] ?? ""}`.toUpperCase();
+}
+
+function PhotoLightbox({ src, alt }: { src: string; alt: string }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 pointer-events-none"
+      style={{ backdropFilter: 'blur(4px)' }}
+    >
+      <div className="relative max-w-[90vw] max-h-[90vh]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={src}
+          alt={alt}
+          className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
+        />
+        <p className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center py-2 px-4 rounded-b-lg text-sm">
+          {alt}
+        </p>
+      </div>
+    </div>,
+    document.body
+  );
 }
 
 function PhotoThumbnail({
@@ -65,24 +97,7 @@ function PhotoThumbnail({
         />
       </div>
       
-      {showPreview && (
-        <div 
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 pointer-events-none"
-          style={{ backdropFilter: 'blur(4px)' }}
-        >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt={alt}
-              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
-            />
-            <p className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center py-2 px-4 rounded-b-lg text-sm">
-              {alt}
-            </p>
-          </div>
-        </div>
-      )}
+      {showPreview && <PhotoLightbox src={src} alt={alt} />}
     </>
   );
 }
