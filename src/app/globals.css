@@ -628,9 +628,8 @@ select {
    ========================================================================== */
 
 .dialog-overlay {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 50;
   background: var(--bg-overlay);
   backdrop-filter: blur(4px);
   animation: fadeIn var(--transition-fast) ease-out;

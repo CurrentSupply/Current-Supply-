@@ -112,28 +112,8 @@ function QuickEditDialogForm({
       title="Edit Deal"
       description="Update the details for this item."
       size="md"
-      footer={
-        <>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={onClose}
-            disabled={busy}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            form="quick-edit-form"
-            className="btn btn-primary"
-            disabled={busy}
-          >
-            {busy ? "Saving…" : "Save Changes"}
-          </button>
-        </>
-      }
     >
-      <form id="quick-edit-form" onSubmit={(e) => void submit(e)} className="space-y-4">
+      <form onSubmit={(e) => void submit(e)} className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="field sm:col-span-2">
             <label htmlFor="quick-name">Item Name</label>
@@ -254,6 +234,24 @@ function QuickEditDialogForm({
         {error && (
           <p className="text-sm text-[var(--color-error)]">{error}</p>
         )}
+
+        <div className="flex justify-end gap-3 pt-4 border-t border-[var(--border-secondary)]">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={onClose}
+            disabled={busy}
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={busy}
+          >
+            {busy ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
       </form>
     </Dialog>
   );

@@ -65,7 +65,7 @@ export function Dialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="dialog-overlay"
+        className="dialog-overlay absolute inset-0"
         onClick={closeOnBackdrop ? onClose : undefined}
         aria-hidden="true"
       />
