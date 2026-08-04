@@ -49,12 +49,12 @@ function PhotoThumbnail({
   }
 
   return (
-    <div
-      className="relative"
-      onMouseEnter={() => setShowPreview(true)}
-      onMouseLeave={() => setShowPreview(false)}
-    >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)] cursor-zoom-in">
+    <>
+      <div
+        className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)] cursor-zoom-in"
+        onMouseEnter={() => setShowPreview(true)}
+        onMouseLeave={() => setShowPreview(false)}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
@@ -66,18 +66,24 @@ function PhotoThumbnail({
       </div>
       
       {showPreview && (
-        <div className="absolute left-0 top-full mt-2 z-50 pointer-events-none">
-          <div className="rounded-xl overflow-hidden shadow-xl border border-[var(--border-primary)] bg-[var(--bg-elevated)]">
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 pointer-events-none"
+          style={{ backdropFilter: 'blur(4px)' }}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={src}
               alt={alt}
-              className="w-64 h-64 object-cover"
+              className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
             />
+            <p className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-center py-2 px-4 rounded-b-lg text-sm">
+              {alt}
+            </p>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
 
