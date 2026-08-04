@@ -48,7 +48,6 @@ export type DealFormSubmitPayload = {
 type Props = {
   categories: Category[];
   initial?: Partial<Deal>;
-  /** Existing cover URL/path for edit mode preview */
   initialCoverFilename?: string | null;
   submitLabel: string;
   onSubmit: (payload: DealFormSubmitPayload) => Promise<void>;
@@ -74,11 +73,7 @@ function fromDeal(deal?: Partial<Deal>): DealFormValues {
   };
 }
 
-function base64ToFile(
-  base64: string,
-  mimeType: string,
-  filename: string,
-): File {
+function base64ToFile(base64: string, mimeType: string, filename: string): File {
   const raw = atob(base64.replace(/^data:[^;]+;base64,/, ""));
   const bytes = new Uint8Array(raw.length);
   for (let i = 0; i < raw.length; i++) {
@@ -138,7 +133,6 @@ export function DealForm({
     setValues((prev) => ({
       ...prev,
       soldAt,
-      // Picking a sold date marks the deal sold; clearing it returns to in stock.
       status: soldAt ? "sold" : "in_stock",
     }));
   }
@@ -190,7 +184,7 @@ export function DealForm({
       setPhotoHint(
         initialCoverFilename
           ? "New cover ready — saving replaces the previous cover."
-          : "Cover found from the name — double-check it’s the right shoe, then save.",
+          : "Cover found — double-check it's correct, then save.",
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not find a photo.");
@@ -235,12 +229,12 @@ export function DealForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="surface min-w-0 rounded-none p-5 sm:p-6">
-      <div className="field mb-5">
-        <label htmlFor="cover-photo">Cover photo</label>
+    <form onSubmit={handleSubmit} className="card p-6">
+      {/* Cover Photo Section */}
+      <div className="mb-6">
+        <label className="field-label mb-2 block">Cover Photo</label>
         <input
           ref={coverInputRef}
-          id="cover-photo"
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
           className="hidden"
@@ -250,10 +244,10 @@ export function DealForm({
           }}
         />
         <div
-          className={`mt-1 overflow-hidden rounded-none border border-dashed transition ${
+          className={`overflow-hidden rounded-xl border-2 border-dashed transition-all ${
             dragging
-              ? "border-black bg-[#f3f3f3]"
-              : "border-[var(--line)] bg-white"
+              ? "border-[var(--text-primary)] bg-[var(--bg-secondary)]"
+              : "border-[var(--border-primary)] bg-[var(--bg)]"
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -267,78 +261,82 @@ export function DealForm({
           }}
         >
           {coverPreviewUrl ? (
-            <div className="relative">
+            <div>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={coverPreviewUrl}
                 alt="Cover preview"
                 className="aspect-[4/3] w-full object-cover"
               />
-              <div className="flex flex-wrap gap-2 border-t border-[var(--line)] p-3">
+              <div className="flex flex-wrap gap-2 border-t border-[var(--border-secondary)] p-4">
                 <button
                   type="button"
-                  className="btn btn-secondary"
+                  className="btn btn-secondary btn-sm"
                   onClick={() => coverInputRef.current?.click()}
                 >
-                  Replace photo
+                  Replace
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-sm"
                   disabled={findBusy || busy || !values.name.trim()}
                   onClick={() => void findPhotoFromName()}
                 >
-                  {findBusy ? "Finding…" : "Replace cover"}
+                  {findBusy ? "Finding…" : "Find Cover"}
                 </button>
-                {coverFile ? (
+                {coverFile && (
                   <button
                     type="button"
-                    className="btn btn-ghost"
+                    className="btn btn-ghost btn-sm"
                     onClick={() => {
                       setCoverFile(null);
                       setPhotoHint("");
                     }}
                   >
-                    Clear new photo
+                    Clear
                   </button>
-                ) : null}
+                )}
               </div>
             </div>
           ) : (
-            <div className="px-4 py-10 text-center">
+            <div className="px-6 py-12 text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--bg-secondary)]">
+                <svg className="h-6 w-6 text-[var(--text-tertiary)]" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                </svg>
+              </div>
               <button
                 type="button"
-                className="mx-auto flex w-full flex-col items-center gap-2"
+                className="text-sm font-medium text-[var(--text-primary)] hover:underline"
                 onClick={() => coverInputRef.current?.click()}
               >
-                <span className="text-sm font-medium text-[var(--ink)]">
-                  Add cover photo
-                </span>
-                <span className="text-sm text-[var(--muted)]">
-                  Drag & drop or click to choose. JPG, PNG, WebP, GIF up to 8MB.
-                </span>
+                Add cover photo
               </button>
-              <div className="mt-4 flex flex-wrap justify-center gap-2">
+              <p className="mt-1 text-xs text-[var(--text-tertiary)]">
+                Drag & drop or click to choose. JPG, PNG, WebP up to 8MB.
+              </p>
+              <div className="mt-4">
                 <button
                   type="button"
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-sm"
                   disabled={findBusy || busy || !values.name.trim()}
                   onClick={() => void findPhotoFromName()}
                 >
-                  {findBusy ? "Finding…" : "Find cover"}
+                  {findBusy ? "Finding…" : "Find Cover from Name"}
                 </button>
               </div>
             </div>
           )}
         </div>
-        {photoHint ? (
-          <p className="mt-2 text-xs text-[var(--muted)]">{photoHint}</p>
-        ) : null}
+        {photoHint && (
+          <p className="mt-2 text-xs text-[var(--text-secondary)]">{photoHint}</p>
+        )}
       </div>
 
-      <div className="grid min-w-0 gap-4 sm:grid-cols-2">
+      {/* Form Fields */}
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="field sm:col-span-2">
-          <label htmlFor="name">Item name</label>
+          <label htmlFor="name">Item Name</label>
           <input
             id="name"
             value={values.name}
@@ -346,12 +344,11 @@ export function DealForm({
             placeholder="Jordan 1 Retro High OG"
             required
           />
-          <p className="text-xs text-[var(--muted)]">
-            Tip: use a clear product name (brand, model, colorway), then Find
-            cover for an HD full-shoe photo. That replaces the previous cover
-            on save.
-          </p>
+          <span className="field-hint">
+            Use a clear product name (brand, model, colorway) for best cover search results.
+          </span>
         </div>
+
         <div className="field">
           <label htmlFor="size">Size</label>
           <input
@@ -362,6 +359,7 @@ export function DealForm({
             required
           />
         </div>
+
         <div className="field">
           <label htmlFor="categoryId">Category</label>
           <select
@@ -370,16 +368,13 @@ export function DealForm({
             onChange={(e) => update("categoryId", e.target.value)}
             required
           >
-            <option value="" disabled>
-              Select category
-            </option>
+            <option value="" disabled>Select category</option>
             {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
+              <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="owner">Owner</label>
           <select
@@ -389,12 +384,25 @@ export function DealForm({
             required
           >
             {DEAL_OWNERS.map((owner) => (
-              <option key={owner} value={owner}>
-                {DEAL_OWNER_LABELS[owner]}
-              </option>
+              <option key={owner} value={owner}>{DEAL_OWNER_LABELS[owner]}</option>
             ))}
           </select>
         </div>
+
+        <div className="field">
+          <label htmlFor="condition">Condition</label>
+          <select
+            id="condition"
+            value={values.condition}
+            onChange={(e) => update("condition", e.target.value as DealCondition)}
+            required
+          >
+            {DEAL_CONDITIONS.map((c) => (
+              <option key={c} value={c}>{DEAL_CONDITION_LABELS[c]}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="field">
           <label htmlFor="cost">Cost</label>
           <input
@@ -407,6 +415,7 @@ export function DealForm({
             required
           />
         </div>
+
         <div className="field">
           <label htmlFor="price">Price</label>
           <input
@@ -419,19 +428,19 @@ export function DealForm({
             required
           />
         </div>
+
         <div className="field">
           <label htmlFor="status">Status</label>
           <select
             id="status"
             value={values.status}
-            onChange={(e) =>
-              setStatus(e.target.value as "in_stock" | "sold")
-            }
+            onChange={(e) => setStatus(e.target.value as "in_stock" | "sold")}
           >
-            <option value="in_stock">In stock</option>
+            <option value="in_stock">In Stock</option>
             <option value="sold">Sold</option>
           </select>
         </div>
+
         <div className="field">
           <label htmlFor="platform">Platform</label>
           <input
@@ -441,8 +450,9 @@ export function DealForm({
             placeholder="eBay, StockX, Facebook…"
           />
         </div>
+
         <div className="field">
-          <label htmlFor="purchasedAt">Purchased</label>
+          <label htmlFor="purchasedAt">Purchase Date</label>
           <input
             id="purchasedAt"
             type="date"
@@ -451,62 +461,46 @@ export function DealForm({
             required
           />
         </div>
+
         <div className="field">
-          <label htmlFor="soldAt">Sold date</label>
+          <label htmlFor="soldAt">Sold Date</label>
           <input
             id="soldAt"
             type="date"
             value={values.soldAt}
             onChange={(e) => setSoldAt(e.target.value)}
           />
-          <p className="mt-1 text-xs text-[var(--muted)]">
+          <span className="field-hint">
             {values.status === "sold"
               ? "Change this anytime for sold items."
               : "Set a date to mark this item sold."}
-          </p>
+          </span>
         </div>
-        <div className="field">
-          <label htmlFor="condition">Condition</label>
-          <select
-            id="condition"
-            value={values.condition}
-            onChange={(e) =>
-              update("condition", e.target.value as DealCondition)
-            }
-            required
-          >
-            {DEAL_CONDITIONS.map((c) => (
-              <option key={c} value={c}>
-                {DEAL_CONDITION_LABELS[c]}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="min-w-0 sm:col-span-2">
-          <p className="mb-1 text-[0.72rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
-            Includes
-          </p>
-          <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:gap-x-6 sm:gap-y-2">
-            <label className="flex w-full cursor-pointer items-center gap-2 py-2 text-sm text-[var(--ink)] sm:w-auto sm:py-1">
+
+        <div className="sm:col-span-2">
+          <label className="field-label mb-3 block">Includes</label>
+          <div className="flex flex-wrap gap-6">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={values.hasBox}
                 onChange={(e) => update("hasBox", e.target.checked)}
-                className="h-4 w-4 shrink-0 accent-black"
+                className="h-4 w-4 rounded border-[var(--border-primary)] accent-[var(--text-primary)]"
               />
-              <span>Box</span>
+              <span className="text-sm">Box</span>
             </label>
-            <label className="flex w-full cursor-pointer items-center gap-2 py-2 text-sm text-[var(--ink)] sm:w-auto sm:py-1">
+            <label className="flex cursor-pointer items-center gap-2">
               <input
                 type="checkbox"
                 checked={values.hasInsoles}
                 onChange={(e) => update("hasInsoles", e.target.checked)}
-                className="h-4 w-4 shrink-0 accent-black"
+                className="h-4 w-4 rounded border-[var(--border-primary)] accent-[var(--text-primary)]"
               />
-              <span>Insoles</span>
+              <span className="text-sm">Insoles</span>
             </label>
           </div>
         </div>
+
         <div className="field sm:col-span-2">
           <label htmlFor="notes">Notes</label>
           <textarea
@@ -519,34 +513,43 @@ export function DealForm({
         </div>
       </div>
 
-      {profitPreview !== null ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          Profit preview:{" "}
-          <span className={profitToneClass(profitPreview)}>
-            {formatMoney(profitPreview)}
-          </span>
-        </p>
-      ) : null}
+      {/* Profit Preview */}
+      {profitPreview !== null && (
+        <div className="mt-6 rounded-lg bg-[var(--bg-secondary)] p-4">
+          <p className="text-sm text-[var(--text-secondary)]">
+            Profit Preview:{" "}
+            <span className={`font-semibold ${profitToneClass(profitPreview)}`}>
+              {formatMoney(profitPreview)}
+            </span>
+          </p>
+        </div>
+      )}
 
-      {error ? <p className="mt-3 text-sm text-[var(--danger)]">{error}</p> : null}
+      {/* Error Message */}
+      {error && (
+        <div className="alert alert-error mt-4">
+          {error}
+        </div>
+      )}
 
-      <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      {/* Actions */}
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
         <button
           type="submit"
-          className="btn btn-primary w-full sm:w-auto"
+          className="btn btn-primary"
           disabled={busy}
         >
           {busy ? "Saving…" : submitLabel}
         </button>
-        {onCancel ? (
+        {onCancel && (
           <button
             type="button"
-            className="btn btn-secondary w-full sm:w-auto"
+            className="btn btn-secondary"
             onClick={onCancel}
           >
             Cancel
           </button>
-        ) : null}
+        )}
       </div>
     </form>
   );

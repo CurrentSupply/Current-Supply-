@@ -6,6 +6,7 @@ import { MetricTile } from "@/components/MetricTile";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
 import { ReportFilters } from "@/components/ReportFilters";
+import { Section } from "@/components/ui";
 import type { Category } from "@/db/schema";
 import type { DashboardStats } from "@/lib/deals";
 import { calcProfit, formatMoney, photoUrl, profitToneClass } from "@/lib/format";
@@ -95,7 +96,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         kicker="Analytics"
-        title="Analytics"
+        title="Dashboard"
         subtitle="Stock, sales, and capital at a glance."
       />
 
@@ -120,16 +121,16 @@ export default function DashboardPage() {
           action={
             filteredEmpty ? undefined : (
               <Link href="/inventory/new" className="btn btn-primary">
-                Add deal
+                Add Deal
               </Link>
             )
           }
         />
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <MetricTile
-              label="In stock"
+              label="In Stock"
               value={String(stats.inStockCount)}
               hint="Open deals right now"
             />
@@ -139,29 +140,29 @@ export default function DashboardPage() {
               hint="Closed deals in view"
             />
             <MetricTile
-              label="Inventory cost"
+              label="Inventory Cost"
               value={formatMoney(stats.inventoryCost)}
               hint="Cash tied up in stock"
             />
             <MetricTile
-              label="List value"
+              label="List Value"
               value={formatMoney(stats.inventoryValue)}
               hint="If everything sold at list"
             />
             <MetricTile
-              label="Projected profit"
+              label="Projected Profit"
               value={formatMoney(stats.projectedProfit)}
               valueClassName={profitToneClass(stats.projectedProfit)}
               hint="Open stock at list price"
             />
             <MetricTile
-              label="Realized profit"
+              label="Realized Profit"
               value={formatMoney(stats.realizedProfit)}
               valueClassName={profitToneClass(stats.realizedProfit)}
               hint="Sales − cost of sold"
             />
             <MetricTile
-              label="Avg ROI (sold)"
+              label="Avg ROI (Sold)"
               value={
                 stats.avgRoiSold === null
                   ? "—"
@@ -174,7 +175,7 @@ export default function DashboardPage() {
               }
             />
             <MetricTile
-              label="Avg days held"
+              label="Avg Days Held"
               value={
                 stats.avgDaysHeldSold === null
                   ? "—"
@@ -182,7 +183,7 @@ export default function DashboardPage() {
               }
             />
             <MetricTile
-              label="Best category"
+              label="Best Category"
               value={stats.bestCategory?.name ?? "—"}
               hint={
                 stats.bestCategory
@@ -192,11 +193,11 @@ export default function DashboardPage() {
               hintClassName={
                 stats.bestCategory
                   ? profitToneClass(stats.bestCategory.profit)
-                  : "text-[var(--muted)]"
+                  : "text-[var(--text-secondary)]"
               }
             />
             <MetricTile
-              label="Best size"
+              label="Best Size"
               value={stats.bestSize ? `Size ${stats.bestSize.name}` : "—"}
               hint={
                 stats.bestSize
@@ -206,16 +207,16 @@ export default function DashboardPage() {
               hintClassName={
                 stats.bestSize
                   ? profitToneClass(stats.bestSize.profit)
-                  : "text-[var(--muted)]"
+                  : "text-[var(--text-secondary)]"
               }
             />
             <MetricTile
-              label="With box"
+              label="With Box"
               value={String(stats.withBoxCount)}
               hint="Across deals in view"
             />
             <MetricTile
-              label="Sell-through"
+              label="Sell-Through"
               value={
                 stats.inStockCount + stats.soldCount === 0
                   ? "—"
@@ -229,24 +230,23 @@ export default function DashboardPage() {
             />
           </div>
 
-          <div className="grid gap-5 lg:grid-cols-2">
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">Profit by month</h2>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <Section title="Profit by Month">
               {stats.byMonth.length === 0 ? (
-                <p className="mt-4 text-sm text-[var(--muted)]">No sales yet.</p>
+                <p className="text-sm text-[var(--text-secondary)]">No sales yet.</p>
               ) : (
-                <ul className="mt-4 space-y-3">
+                <ul className="space-y-4">
                   {stats.byMonth.map((row) => (
                     <li key={row.month}>
-                      <div className="mb-1 flex justify-between text-sm">
-                        <span>{row.month}</span>
+                      <div className="mb-2 flex justify-between text-sm">
+                        <span className="font-medium">{row.month}</span>
                         <span className={profitToneClass(row.profit)}>
                           {row.sold} sold · {formatMoney(row.profit)}
                         </span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-none bg-[var(--bg-deep)]">
+                      <div className="h-2 overflow-hidden rounded-full bg-[var(--bg-secondary)]">
                         <div
-                          className="h-full rounded-none bg-[var(--accent)]"
+                          className="h-full rounded-full bg-[var(--text-primary)] transition-all"
                           style={{
                             width: `${Math.max(
                               8,
@@ -259,17 +259,16 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By size</h2>
-              <p className="mt-1 text-sm text-[var(--muted)]">
-                Ranked by sold profit — see what size moves best.
-              </p>
+            <Section
+              title="By Size"
+              subtitle="Ranked by sold profit — see what size moves best."
+            >
               {stats.bySize.length === 0 ? (
-                <p className="mt-4 text-sm text-[var(--muted)]">No sizes yet.</p>
+                <p className="text-sm text-[var(--text-secondary)]">No sizes yet.</p>
               ) : (
-                <ul className="mt-4 divide-y divide-[var(--line)]">
+                <ul className="divide-y divide-[var(--border-secondary)]">
                   {stats.bySize.map((row) => (
                     <li
                       key={row.name}
@@ -277,7 +276,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <p className="font-medium">Size {row.name}</p>
-                        <p className="text-[var(--muted)]">
+                        <p className="text-[var(--text-secondary)]">
                           {row.inStock} in stock · {row.sold} sold
                         </p>
                       </div>
@@ -288,16 +287,15 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By category</h2>
+            <Section title="By Category">
               {stats.byCategory.length === 0 ? (
-                <p className="mt-4 text-sm text-[var(--muted)]">
+                <p className="text-sm text-[var(--text-secondary)]">
                   No categories yet.
                 </p>
               ) : (
-                <ul className="mt-4 divide-y divide-[var(--line)]">
+                <ul className="divide-y divide-[var(--border-secondary)]">
                   {stats.byCategory.map((row) => (
                     <li
                       key={row.name}
@@ -305,7 +303,7 @@ export default function DashboardPage() {
                     >
                       <div>
                         <p className="font-medium">{row.name}</p>
-                        <p className="text-[var(--muted)]">
+                        <p className="text-[var(--text-secondary)]">
                           {row.inStock} in stock · {row.sold} sold
                         </p>
                       </div>
@@ -316,11 +314,10 @@ export default function DashboardPage() {
                   ))}
                 </ul>
               )}
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By owner</h2>
-              <ul className="mt-4 divide-y divide-[var(--line)]">
+            <Section title="By Owner">
+              <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byOwner.map((row) => (
                   <li
                     key={row.name}
@@ -328,7 +325,7 @@ export default function DashboardPage() {
                   >
                     <div>
                       <p className="font-medium">{row.name}</p>
-                      <p className="text-[var(--muted)]">
+                      <p className="text-[var(--text-secondary)]">
                         {row.inStock} in stock · {row.sold} sold
                       </p>
                     </div>
@@ -338,51 +335,51 @@ export default function DashboardPage() {
                   </li>
                 ))}
               </ul>
-            </section>
+            </Section>
 
-            <section className="surface rounded-none p-5">
-              <h2 className="text-lg font-semibold">By condition</h2>
-              <ul className="mt-4 divide-y divide-[var(--line)]">
+            <Section title="By Condition">
+              <ul className="divide-y divide-[var(--border-secondary)]">
                 {stats.byCondition.map((row) => (
                   <li
                     key={row.name}
                     className="flex items-center justify-between py-3 text-sm"
                   >
                     <p className="font-medium">{row.name}</p>
-                    <p className="text-[var(--muted)]">
+                    <p className="text-[var(--text-secondary)]">
                       {row.inStock} in stock · {row.sold} sold
                     </p>
                   </li>
                 ))}
               </ul>
-            </section>
+            </Section>
           </div>
 
-          <section className="surface rounded-none p-5">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold">Recently sold</h2>
+          <Section
+            title="Recently Sold"
+            action={
               <Link
                 href="/inventory?status=sold"
-                className="text-sm font-bold uppercase tracking-[0.1em] underline underline-offset-4"
+                className="text-sm font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
               >
-                View sold
+                View all sold →
               </Link>
-            </div>
+            }
+          >
             {stats.recentlySold.length === 0 ? (
-              <p className="mt-4 text-sm text-[var(--muted)]">
+              <p className="text-sm text-[var(--text-secondary)]">
                 No sales recorded yet.
               </p>
             ) : (
-              <ul className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {stats.recentlySold.map((deal) => {
                   const soldProfit = calcProfit(deal.price, deal.cost);
                   return (
                     <li key={deal.id}>
                       <Link
                         href={`/inventory/${deal.id}`}
-                        className="flex gap-3 rounded-none border border-[var(--line)] bg-white/70 p-2 transition hover:border-[var(--accent)]"
+                        className="flex gap-3 rounded-xl border border-[var(--border-secondary)] bg-[var(--bg-elevated)] p-3 transition-all hover:border-[var(--border-primary)] hover:shadow-sm"
                       >
-                        <div className="h-16 w-16 overflow-hidden rounded-none bg-[var(--bg-deep)]">
+                        <div className="h-14 w-14 overflow-hidden rounded-lg bg-[var(--bg-secondary)]">
                           {deal.coverPhoto ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -392,9 +389,9 @@ export default function DashboardPage() {
                             />
                           ) : null}
                         </div>
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <p className="truncate font-medium">{deal.name}</p>
-                          <p className="text-sm text-[var(--muted)]">
+                          <p className="text-sm text-[var(--text-secondary)]">
                             {deal.size} · {deal.soldAt?.slice(0, 10)} ·{" "}
                             <span className={profitToneClass(soldProfit)}>
                               {formatMoney(soldProfit)}
@@ -407,7 +404,7 @@ export default function DashboardPage() {
                 })}
               </ul>
             )}
-          </section>
+          </Section>
         </>
       )}
     </div>

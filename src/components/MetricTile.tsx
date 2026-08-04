@@ -14,16 +14,12 @@ export function MetricTile({
   hintClassName,
 }: Props) {
   return (
-    <div className="surface rounded-none p-4">
-      <p className="page-kicker">{label}</p>
-      <p className={`page-title mt-2 text-2xl ${valueClassName ?? ""}`}>
-        {value}
-      </p>
-      {hint ? (
-        <p className={`mt-1 text-xs ${hintClassName ?? "text-[var(--muted)]"}`}>
-          {hint}
-        </p>
-      ) : null}
+    <div className="metric-tile">
+      <p className="metric-label">{label}</p>
+      <p className={`metric-value ${valueClassName ?? ""}`}>{value}</p>
+      {hint && (
+        <p className={`metric-hint ${hintClassName ?? ""}`}>{hint}</p>
+      )}
     </div>
   );
 }

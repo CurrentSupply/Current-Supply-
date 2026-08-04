@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DEAL_OWNER_LABELS, parseDealOwner } from "@/db/schema";
+import { PencilIcon } from "@/components/icons";
 import type { DealWithRelations } from "@/lib/deals";
 import {
   calcProfit,
@@ -10,6 +11,7 @@ import {
   photoUrl,
   profitToneClass,
 } from "@/lib/format";
+import { StatusBadge } from "@/components/ui";
 
 type Props = {
   deal: DealWithRelations;
@@ -24,108 +26,86 @@ export function DealCard({ deal, onMarkSold, onQuickEdit }: Props) {
   const isSold = deal.status === "sold";
 
   return (
-    <article className="surface group overflow-hidden rounded-none transition hover:border-black">
+    <article className="card card-interactive group overflow-hidden">
       <Link href={`/inventory/${deal.id}`} className="block">
-        <div className="relative aspect-[4/3] overflow-hidden bg-[#efefef]">
+        <div className="relative aspect-[4/3] overflow-hidden bg-[var(--bg-secondary)]">
           {cover ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photoUrl(cover.filename)}
               alt={deal.name}
-              className={`h-full w-full object-cover ${
-                isSold ? "scale-105 blur-[6px]" : ""
+              className={`h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 ${
+                isSold ? "opacity-60 grayscale" : ""
               }`}
             />
           ) : (
-            <div className="flex h-full items-center justify-center text-sm uppercase tracking-[0.12em] text-[var(--muted)]">
+            <div className="flex h-full items-center justify-center text-sm text-[var(--text-tertiary)]">
               No photo
             </div>
           )}
-          {isSold ? (
-            <>
-              <div className="absolute inset-0 bg-black/25" aria-hidden />
-              <span
-                className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl font-black uppercase tracking-[0.14em] text-black sm:text-5xl"
-                style={{
-                  WebkitTextStroke: "2px white",
-                  textShadow:
-                    "0 0 2px #fff, 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff",
-                }}
-              >
-                Sold
-              </span>
-            </>
-          ) : (
-            <span className="badge badge-stock absolute left-3 top-3">
-              In stock
-            </span>
-          )}
+          <div className="absolute left-3 top-3">
+            <StatusBadge status={deal.status === "sold" ? "sold" : "in_stock"} />
+          </div>
         </div>
+
         <div className="p-4">
           <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="page-title text-xl leading-tight">
-                {deal.name}
-              </h3>
-              <p className="mt-1 text-sm text-[var(--muted)]">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-heading text-base truncate">{deal.name}</h3>
+              <p className="mt-1 text-sm text-[var(--text-secondary)] truncate">
                 Size {deal.size}
                 {deal.category ? ` · ${deal.category.name}` : ""}
-                {` · ${deal.condition}`}
                 {` · ${ownerLabel}`}
-                {deal.hasBox ? " · Box" : ""}
-                {deal.hasInsoles ? " · Insoles" : ""}
               </p>
             </div>
-            <div className="text-right">
-              <p className="font-semibold">{formatMoney(deal.price)}</p>
-              <p className="text-xs text-[var(--muted)]">
-                cost {formatMoney(deal.cost)}
+            <div className="text-right shrink-0">
+              <p className="font-semibold tabular-nums">{formatMoney(deal.price)}</p>
+              <p className="text-xs text-[var(--text-tertiary)] tabular-nums">
+                {formatMoney(deal.cost)} cost
               </p>
             </div>
           </div>
-          <div className="mt-3 flex items-center justify-between text-sm">
-            <span className={profitToneClass(profit)}>
+
+          <div className="mt-3 flex items-center justify-between">
+            <span className={`text-sm tabular-nums ${profitToneClass(profit)}`}>
               {profit > 0 ? "+" : ""}
               {formatMoney(profit)} · {formatRoi(deal.price, deal.cost)}
             </span>
-            {deal.platform ? (
-              <span className="text-[var(--muted)]">{deal.platform}</span>
-            ) : null}
+            {deal.platform && (
+              <span className="text-xs text-[var(--text-tertiary)]">
+                {deal.platform}
+              </span>
+            )}
           </div>
         </div>
       </Link>
-      {deal.status === "in_stock" && onMarkSold ? (
-        <div className="flex border-t border-[var(--line)]">
-          {onQuickEdit ? (
+
+      {(onQuickEdit || (deal.status === "in_stock" && onMarkSold)) && (
+        <div className="flex border-t border-[var(--border-secondary)]">
+          {onQuickEdit && (
             <button
               type="button"
-              className="btn btn-ghost flex-1 rounded-none"
+              aria-label="Edit"
+              title="Edit"
+              className="inline-flex items-center justify-center px-4 py-3 text-[var(--text-tertiary)] transition-colors hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]"
               onClick={() => onQuickEdit(deal)}
             >
-              Edit
+              <PencilIcon className="h-4 w-4" />
             </button>
-          ) : null}
-          <button
-            type="button"
-            className={`btn btn-secondary flex-1 rounded-none border-0 border-l border-[var(--line)] ${
-              onQuickEdit ? "" : "w-full border-l-0"
-            }`}
-            onClick={() => onMarkSold(deal)}
-          >
-            Mark sold
-          </button>
+          )}
+          {deal.status === "in_stock" && onMarkSold && (
+            <button
+              type="button"
+              className={`btn btn-secondary flex-1 rounded-none border-0 ${
+                onQuickEdit ? "border-l border-[var(--border-secondary)]" : ""
+              }`}
+              onClick={() => onMarkSold(deal)}
+            >
+              Mark Sold
+            </button>
+          )}
         </div>
-      ) : onQuickEdit ? (
-        <div className="border-t border-[var(--line)] px-4 py-3">
-          <button
-            type="button"
-            className="btn btn-ghost w-full"
-            onClick={() => onQuickEdit(deal)}
-          >
-            Edit
-          </button>
-        </div>
-      ) : null}
+      )}
     </article>
   );
 }

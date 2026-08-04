@@ -45,14 +45,14 @@ export function ReportFilters({
   }
 
   return (
-    <section className="surface w-full min-w-0 overflow-hidden rounded-none p-4">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <p className="text-[0.72rem] font-bold uppercase tracking-[0.1em] text-[var(--muted)]">
+    <section className="card w-full min-w-0 overflow-hidden p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--text-secondary)]">
           Filters
         </p>
         <button
           type="button"
-          className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--muted)] underline-offset-2 hover:text-[var(--ink)] hover:underline"
+          className="text-sm font-medium text-[var(--text-secondary)] underline-offset-2 hover:text-[var(--text-primary)] hover:underline"
           onClick={clear}
         >
           Clear

@@ -14,12 +14,8 @@ const OPTIONS: { value: InventoryViewMode; label: string }[] = [
 
 export function InventoryViewToggle({ value, onChange }: Props) {
   return (
-    <div
-      className="flex w-max border border-black"
-      role="group"
-      aria-label="Inventory layout"
-    >
-      {OPTIONS.map((option, index) => {
+    <div className="segmented-control" role="group" aria-label="Inventory layout">
+      {OPTIONS.map((option) => {
         const active = value === option.value;
         return (
           <button
@@ -27,12 +23,8 @@ export function InventoryViewToggle({ value, onChange }: Props) {
             type="button"
             aria-pressed={active}
             onClick={() => onChange(option.value)}
-            className={`whitespace-nowrap px-2.5 py-1.5 text-[0.62rem] font-bold uppercase tracking-[0.1em] transition sm:px-3 sm:text-[0.68rem] ${
-              index > 0 ? "border-l border-black" : ""
-            } ${
-              active
-                ? "bg-black text-white"
-                : "bg-white text-black hover:bg-[#f3f3f3]"
+            className={`segmented-control-item ${
+              active ? "segmented-control-item-active" : ""
             }`}
           >
             {option.label}

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "@/components/PageHeader";
 import { PageEmpty, PageError, PageLoading } from "@/components/PageStatus";
+import { Section } from "@/components/ui";
 import type { DealWithRelations } from "@/lib/deals";
 import { formatMoney, photoUrl } from "@/lib/format";
 import { getJson, postJson } from "@/lib/http";
@@ -76,6 +77,7 @@ function OverlayTool() {
     const cover = next.coverPhoto ?? next.photos[0];
     setPhotoId(cover ? String(cover.id) : "");
   }
+
   async function stamp() {
     if (!selected) return;
     setBusy(true);
@@ -110,7 +112,7 @@ function OverlayTool() {
     <div className="space-y-6">
       <PageHeader
         kicker="Stamp"
-        title="Stamp a listing photo"
+        title="Stamp a Listing Photo"
         subtitle="Add size and price to a deal photo, then download a listing-ready image."
       />
 
@@ -124,92 +126,94 @@ function OverlayTool() {
           description="Add a deal with a photo first."
           action={
             <Link href="/inventory/new" className="btn btn-primary">
-              Add deal
+              Add Deal
             </Link>
           }
         />
       ) : (
-        <div className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="surface space-y-4 rounded-none p-5">
-            <div className="field">
-              <label htmlFor="deal">Deal</label>
-              <select
-                id="deal"
-                value={dealId}
-                onChange={(e) => selectDeal(e.target.value)}
-              >
-                {deals.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name} · {d.size}
-                    {d.photos.length === 0 ? " (no photos)" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="photo">Photo</label>
-              <select
-                id="photo"
-                value={photoId}
-                onChange={(e) => setPhotoId(e.target.value)}
-                disabled={!selected || selected.photos.length === 0}
-              >
-                {selected?.photos.length ? (
-                  selected.photos.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.isCover ? "Cover · " : ""}
-                      {p.originalName}
+        <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+          <Section title="Configure" padding="md">
+            <div className="space-y-4">
+              <div className="field">
+                <label htmlFor="deal">Deal</label>
+                <select
+                  id="deal"
+                  value={dealId}
+                  onChange={(e) => selectDeal(e.target.value)}
+                >
+                  {deals.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.name} · {d.size}
+                      {d.photos.length === 0 ? " (no photos)" : ""}
                     </option>
-                  ))
-                ) : (
-                  <option value="">No photos</option>
-                )}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="field">
-                <label htmlFor="size">Size text</label>
-                <input
-                  id="size"
-                  value={size}
-                  onChange={(e) => setSize(e.target.value)}
-                />
+                  ))}
+                </select>
               </div>
-              <div className="field">
-                <label htmlFor="price">Price</label>
-                <input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
-                />
-              </div>
-            </div>
-            {error ? <PageError message={error} /> : null}
-            <button
-              type="button"
-              className="btn btn-primary w-full"
-              disabled={busy || !previewPhoto}
-              onClick={() => void stamp()}
-            >
-              {busy ? "Stamping…" : "Stamp & download"}
-            </button>
-            {resultUrl ? (
-              <a
-                href={resultUrl}
-                download
-                className="btn btn-secondary w-full"
-              >
-                Download stamped image
-              </a>
-            ) : null}
-          </section>
 
-          <section className="surface rounded-none p-5">
-            <h2 className="text-lg font-semibold">Preview</h2>
-            <div className="mt-4 overflow-hidden rounded-none border border-black bg-[#efefef]">
+              <div className="field">
+                <label htmlFor="photo">Photo</label>
+                <select
+                  id="photo"
+                  value={photoId}
+                  onChange={(e) => setPhotoId(e.target.value)}
+                  disabled={!selected || selected.photos.length === 0}
+                >
+                  {selected?.photos.length ? (
+                    selected.photos.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.isCover ? "Cover · " : ""}
+                        {p.originalName}
+                      </option>
+                    ))
+                  ) : (
+                    <option value="">No photos</option>
+                  )}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="field">
+                  <label htmlFor="size">Size Text</label>
+                  <input
+                    id="size"
+                    value={size}
+                    onChange={(e) => setSize(e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="price">Price</label>
+                  <input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={price}
+                    onChange={(e) => setPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {error && <PageError message={error} />}
+
+              <button
+                type="button"
+                className="btn btn-primary w-full"
+                disabled={busy || !previewPhoto}
+                onClick={() => void stamp()}
+              >
+                {busy ? "Stamping…" : "Stamp & Download"}
+              </button>
+
+              {resultUrl && (
+                <a href={resultUrl} download className="btn btn-secondary w-full">
+                  Download Stamped Image
+                </a>
+              )}
+            </div>
+          </Section>
+
+          <Section title="Preview" padding="md">
+            <div className="overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]">
               {resultUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={resultUrl} alt="Stamped preview" className="w-full" />
@@ -222,20 +226,20 @@ function OverlayTool() {
                     className="w-full"
                   />
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-                  <span className="absolute left-4 top-4 border border-black bg-black px-3 py-1 text-sm font-bold uppercase tracking-[0.08em] text-white">
+                  <span className="absolute left-4 top-4 rounded-lg bg-[var(--text-primary)] px-3 py-1.5 text-sm font-semibold text-[var(--text-inverse)]">
                     {size || "Size"}
                   </span>
-                  <span className="absolute bottom-4 left-4 text-2xl font-bold uppercase tracking-wide text-white">
+                  <span className="absolute bottom-4 left-4 text-2xl font-bold text-white">
                     {price ? formatMoney(Number(price) || 0) : "$—"}
                   </span>
                 </div>
               ) : (
-                <div className="flex aspect-[4/3] items-center justify-center text-[var(--muted)]">
+                <div className="flex aspect-[4/3] items-center justify-center text-[var(--text-tertiary)]">
                   Upload a photo on the deal first
                 </div>
               )}
             </div>
-          </section>
+          </Section>
         </div>
       )}
     </div>

@@ -1,19 +1,26 @@
-import type { Metadata } from "next";
-import { Barlow_Condensed, IBM_Plex_Sans } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { Nav } from "@/components/Nav";
 import "./globals.css";
 
-const display = Barlow_Condensed({
+const inter = Inter({
   variable: "--font-display",
-  subsets: ["latin"],
-  weight: ["600", "700"],
-});
-
-const body = IBM_Plex_Sans({
-  variable: "--font-body",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
+
+const interBody = Inter({
+  variable: "--font-body-var",
+  subsets: ["latin"],
+  weight: ["400", "500", "600"],
+});
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#000000" },
+  ],
+};
 
 export const metadata: Metadata = {
   title: "Current Supply",
@@ -35,10 +42,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${display.variable} ${body.variable} h-full`}>
-      <body className="min-h-full overflow-x-hidden antialiased">
+    <html lang="en" className={`${inter.variable} ${interBody.variable}`} suppressHydrationWarning>
+      <body className="min-h-screen antialiased">
         <Nav />
-        <main className="mx-auto w-full min-w-0 max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
+        <main className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8">
           {children}
         </main>
       </body>
