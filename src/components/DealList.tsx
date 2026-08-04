@@ -32,14 +32,14 @@ export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
       <table className="table">
         <thead>
           <tr>
-            <th className="sticky left-0 z-10 bg-[var(--bg-secondary)]">Item</th>
-            <th>Size</th>
-            <th>Status</th>
-            <th className="text-right">Cost</th>
-            <th className="text-right">Price</th>
-            <th className="text-right">Profit</th>
-            <th>Owner</th>
-            <th><span className="sr-only">Actions</span></th>
+            <th className="sticky left-0 z-10 bg-[var(--bg-secondary)] w-[200px] max-w-[200px]">Item</th>
+            <th className="w-16">Size</th>
+            <th className="w-20">Status</th>
+            <th className="text-right w-20">Cost</th>
+            <th className="text-right w-20">Price</th>
+            <th className="text-right w-28">Profit</th>
+            <th className="w-20">Owner</th>
+            <th className="w-24"><span className="sr-only">Actions</span></th>
           </tr>
         </thead>
         <tbody>
@@ -51,12 +51,12 @@ export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
 
             return (
               <tr key={deal.id} className="group">
-                <td className="sticky left-0 z-10 bg-[var(--bg-elevated)] group-hover:bg-[var(--bg-hover)]">
+                <td className="sticky left-0 z-10 bg-[var(--bg-elevated)] group-hover:bg-[var(--bg-hover)] w-[200px] max-w-[200px]">
                   <Link
                     href={`/inventory/${deal.id}`}
-                    className="flex items-center gap-3 min-w-0"
+                    className="flex items-center gap-2 min-w-0"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)]">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-[var(--bg-secondary)] text-xs font-medium text-[var(--text-tertiary)]">
                       {cover ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -70,14 +70,12 @@ export function DealList({ deals, onMarkSold, onQuickEdit }: Props) {
                         <span aria-hidden>{initials(deal.name)}</span>
                       )}
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-medium truncate group-hover:text-[var(--text-primary)]">
+                    <div className="min-w-0 flex-1 overflow-hidden">
+                      <p className="font-medium truncate group-hover:text-[var(--text-primary)] text-sm">
                         {deal.name}
                       </p>
                       <p className="text-xs text-[var(--text-tertiary)] truncate">
                         {deal.category?.name ?? "Uncategorized"}
-                        {` · ${deal.condition}`}
-                        {deal.platform ? ` · ${deal.platform}` : ""}
                       </p>
                     </div>
                   </Link>
