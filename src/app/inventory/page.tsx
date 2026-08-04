@@ -191,24 +191,6 @@ function InventoryPageInner() {
 
       {loading || !hydrated ? (
         <PageLoading label="Loading deals…" />
-      ) : deals.length === 0 ? (
-        <PageEmpty
-          title={
-            inventoryFiltersAreRestrictive(filters)
-              ? "No deals match"
-              : "No deals yet"
-          }
-          description={
-            inventoryFiltersAreRestrictive(filters)
-              ? "Try clearing filters or search to see everything."
-              : "Add your first item to start tracking deals."
-          }
-          action={
-            <Link href="/inventory/new" className="btn btn-primary">
-              Add deal
-            </Link>
-          }
-        />
       ) : (
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
@@ -217,7 +199,28 @@ function InventoryPageInner() {
             </p>
             <InventoryViewToggle value={view} onChange={updateView} />
           </div>
-          {view === "list" ? (
+
+          {deals.length === 0 ? (
+            <PageEmpty
+              title={
+                inventoryFiltersAreRestrictive(filters)
+                  ? "No deals match"
+                  : "No deals yet"
+              }
+              description={
+                inventoryFiltersAreRestrictive(filters)
+                  ? "Try clearing filters or search to see everything."
+                  : "Add your first item to start tracking deals."
+              }
+              action={
+                !inventoryFiltersAreRestrictive(filters) ? (
+                  <Link href="/inventory/new" className="btn btn-primary">
+                    Add deal
+                  </Link>
+                ) : undefined
+              }
+            />
+          ) : view === "list" ? (
             <DealList
               deals={deals}
               onMarkSold={setSoldTarget}

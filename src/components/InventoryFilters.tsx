@@ -29,6 +29,19 @@ function hasActiveFilters(value: InventoryFilterState): boolean {
   );
 }
 
+function countActiveFilters(value: InventoryFilterState): number {
+  let count = 0;
+  if (value.q !== "") count++;
+  if (value.status !== "all") count++;
+  if (value.owner !== "all") count++;
+  if (value.categoryId !== "all") count++;
+  if (value.size !== "") count++;
+  if (value.purchasedFrom !== "") count++;
+  if (value.purchasedTo !== "") count++;
+  if (value.sort !== "newest") count++;
+  return count;
+}
+
 function ChevronIcon({ expanded }: { expanded: boolean }) {
   return (
     <svg
@@ -85,8 +98,8 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
           <div className="flex items-center gap-2">
             <span className="font-medium">Filters</span>
             {activeFilters && (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--text-primary)] text-xs text-[var(--text-inverse)]">
-                !
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--text-primary)] px-1.5 text-xs text-[var(--text-inverse)]">
+                {countActiveFilters(value)}
               </span>
             )}
           </div>
@@ -295,7 +308,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
           </div>
 
           <div className="field">
-            <label htmlFor="from">Purchased From</label>
+            <label htmlFor="from">From</label>
             <input
               id="from"
               type="date"
@@ -305,7 +318,7 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
           </div>
 
           <div className="field">
-            <label htmlFor="to">Purchased To</label>
+            <label htmlFor="to">To</label>
             <input
               id="to"
               type="date"
@@ -331,6 +344,18 @@ export function InventoryFilters({ categories, value, onChange }: Props) {
             </select>
           </div>
         </div>
+        
+        {activeFilters && (
+          <div className="mt-4 flex justify-end">
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="btn btn-ghost text-[var(--color-error)]"
+            >
+              Clear filters
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
