@@ -137,7 +137,7 @@ export function ReportFilters({
           </select>
         </div>
         <div className="field">
-          <label htmlFor="report-purchased-from">Purchased from</label>
+          <label htmlFor="report-purchased-from">Purchased From</label>
           <input
             id="report-purchased-from"
             type="date"
@@ -146,7 +146,7 @@ export function ReportFilters({
           />
         </div>
         <div className="field">
-          <label htmlFor="report-purchased-to">Purchased to</label>
+          <label htmlFor="report-purchased-to">Purchased To</label>
           <input
             id="report-purchased-to"
             type="date"
@@ -155,7 +155,7 @@ export function ReportFilters({
           />
         </div>
         <div className="field">
-          <label htmlFor="report-sold-from">Sold from</label>
+          <label htmlFor="report-sold-from">Sold From</label>
           <input
             id="report-sold-from"
             type="date"
@@ -164,7 +164,7 @@ export function ReportFilters({
           />
         </div>
         <div className="field">
-          <label htmlFor="report-sold-to">Sold to</label>
+          <label htmlFor="report-sold-to">Sold To</label>
           <input
             id="report-sold-to"
             type="date"
