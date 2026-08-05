@@ -95,6 +95,8 @@ export type QuickEditDealFields = {
   owner: DealFormValues["owner"];
   categoryId: number;
   platform: string;
+  hasBox: boolean;
+  hasInsoles: boolean;
 };
 
 export function patchDealFields(
