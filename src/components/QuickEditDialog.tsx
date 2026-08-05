@@ -56,6 +56,8 @@ function QuickEditDialogForm({
     deal.categoryId ? String(deal.categoryId) : "",
   );
   const [platform, setPlatform] = useState(deal.platform ?? "");
+  const [hasBox, setHasBox] = useState(Boolean(deal.hasBox));
+  const [hasInsoles, setHasInsoles] = useState(Boolean(deal.hasInsoles));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   
@@ -190,6 +192,8 @@ function QuickEditDialogForm({
         owner,
         categoryId: category,
         platform: platform.trim(),
+        hasBox,
+        hasInsoles,
       });
       onClose();
     } catch (err) {
@@ -405,6 +409,30 @@ function QuickEditDialogForm({
                 onChange={(e) => setPlatform(e.target.value)}
                 placeholder="eBay, GOAT, StockX…"
               />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-sm font-medium text-[var(--text-primary)] mb-3 block">Includes</label>
+              <div className="flex flex-wrap gap-6">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={hasBox}
+                    onChange={(e) => setHasBox(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--border-primary)] accent-[var(--text-primary)]"
+                  />
+                  <span className="text-sm">Box</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={hasInsoles}
+                    onChange={(e) => setHasInsoles(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--border-primary)] accent-[var(--text-primary)]"
+                  />
+                  <span className="text-sm">Insoles</span>
+                </label>
+              </div>
             </div>
           </div>
 
